@@ -1,0 +1,204 @@
+{
+    "contexts" : [
+        {"UserContext":{
+            "contextId":"0",
+            "date":"26/07/2022",
+            "time":"10:00:00"},
+        "Weather":{
+            "weather": [
+                {
+                  "main": "Rain"
+                }
+              ],
+            "main": {
+                "temp": 13.12
+            }
+        },
+        "Location" : { 
+            "coords": 
+            { "longitude": -0.8884599384953313,
+               "latitude": 41.683260908334546 } },
+        "Sensorizar" : { 
+            
+                "co2": [
+                    {
+                        "ts": 1658981136975,
+                        "value": "623"
+                    }
+                ],
+                "temperature": [
+                    {
+                        "ts": 1658981870601,
+                        "value": "27.08"
+                    }
+                ],
+                "humidity": [
+                    {
+                        "ts": 1658981870601,
+                        "value": "38.57"
+                    }
+                ]
+            }
+        },
+        {"UserContext":{
+            "contextId":"1",
+            "date":"26/07/2022",
+            "time":"11:00:00"},
+        "Weather":{
+            "weather": [
+                {
+                  "main": "Rain"
+                }
+              ],
+            "main": {
+                "temp": 13.12
+            }
+        },
+        "Location" : { 
+            "coords": 
+            { "longitude": -0.8884599384953313,
+               "latitude": 41.683260908334546 } },
+        "Sensorizar" : { 
+            
+                "co2": [
+                    {
+                        "ts": 1658981136975,
+                        "value": "623"
+                    }
+                ],
+                "temperature": [
+                    {
+                        "ts": 1658981870601,
+                        "value": "31"
+                    }
+                ],
+                "humidity": [
+                    {
+                        "ts": 1658981870601,
+                        "value": "38.57"
+                    }
+                ]
+            }
+        },
+        {"UserContext":{
+            "contextId":"2",
+            "date":"26/07/2022",
+            "time":"14:00:00"},
+        "Weather":{
+            "weather": [
+                {
+                  "main": "Rain"
+                }
+              ],
+            "main": {
+                "temp": 13.12
+            }
+        },
+        "Location" : { 
+            "coords": 
+            { "longitude": -0.8884599384953313,
+               "latitude": 41.683260908334546 } },
+        "Sensorizar" : { 
+            
+                "co2": [
+                    {
+                        "ts": 1658981136975,
+                        "value": "623"
+                    }
+                ],
+                "temperature": [
+                    {
+                        "ts": 1658981870601,
+                        "value": "31"
+                    }
+                ],
+                "humidity": [
+                    {
+                        "ts": 1658981870601,
+                        "value": "38.57"
+                    }
+                ]
+            }
+        },
+        {"UserContext":{
+            "contextId":"3",
+            "date":"26/07/2022",
+            "time":"16:00:00"},
+        "Weather":{
+            "weather": [
+                {
+                  "main": "Rain"
+                }
+              ],
+            "main": {
+                "temp": 13.12
+            }
+        },
+        "Location" : { 
+            "coords": 
+            { "longitude":  -0.8884599384953313, 
+               "latitude": 41.683260908334546 } },
+        "Sensorizar" : { 
+            
+                "co2": [
+                    {
+                        "ts": 1658981136975,
+                        "value": "800"
+                    }
+                ],
+                "temperature": [
+                    {
+                        "ts": 1658981870601,
+                        "value": "25"
+                    }
+                ],
+                "humidity": [
+                    {
+                        "ts": 1658981870601,
+                        "value": "38.57"
+                    }
+                ]
+            }
+        },
+        {"UserContext":{
+            "contextId":"4",
+            "date":"26/07/2022",
+            "time":"19:00:00"},
+        "Weather":{
+            "weather": [
+                {
+                  "main": "Rain"
+                }
+              ],
+            "main": {
+                "temp": 13.12
+            }
+        },
+        "Location" : { 
+            "coords": 
+            { "longitude":  -0.8789346177884217, 
+               "latitude": 41.65631638240867 } },
+        "Sensorizar" : { 
+            
+                "co2": [
+                    {
+                        "ts": 1658981136975,
+                        "value": "800"
+                    }
+                ],
+                "temperature": [
+                    {
+                        "ts": 1658981870601,
+                        "value": "31"
+                    }
+                ],
+                "humidity": [
+                    {
+                        "ts": 1658981870601,
+                        "value": "38.57"
+                    }
+                ]
+            }
+        }
+    ] 
+}

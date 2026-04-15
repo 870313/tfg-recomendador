@@ -1,0 +1,67 @@
+{
+    "list": [
+        {
+            "name": "sensorizar",
+            "url": "https://sensorizar.unizar.es/api/",
+            "requests": [
+                {
+                    "key": "login",
+                    "route": "auth/login/public",
+                    "endRoute": "",
+                    "requestType": "POST",
+                    "headers": {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    },
+                    "pathParams": [],
+                    "queryParams": {},
+                    "body":{
+                        "publicId": "d92ca4a0-3019-11ec-867e-ff99acd2f2e0"
+                    }
+                },
+                {
+                    "key": "data",
+                    "route": "plugins/telemetry/ENTITY_VIEW/",
+                    "endRoute": "values/timeseries?keys=co2,temperature,humidity",
+                    "requestType": "GET",
+                    "headers": {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    },
+                    "pathParams": {
+                        "ENTITY_VIEW": "e7c69610-9969-11ec-b94d-d38ed962c83a"
+                    },
+                    "queryParams": {},
+                    "body":{}
+                }
+            ]
+        
+        },
+        {
+            "name": "openweather",
+            "url": "http://api.openweathermap.org/data/2.5/",
+            "requests": [
+                {
+                    "key": "weather",
+                    "route": "weather",
+                    "endRoute": "",
+                    "requestType": "GET",
+                    "headers": {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    },
+                    "pathParams": [],
+                    "queryParams": {
+                        "lat": "?lat=",
+                        "lon": "&lon=",
+                        "units": "&units=metric",
+                        "appid": "&appid="
+                    },
+                    "body":{ "publicId": "d92ca4a0-3019-11ec-867e-ff99acd2f2e0"
+                    }
+                }
+            ]
+        
+        }
+    ]
+}

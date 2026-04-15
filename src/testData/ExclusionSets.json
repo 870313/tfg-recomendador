@@ -1,0 +1,22 @@
+{
+    "ES" : [
+        {
+            "id": 0,
+            "name": "FirstEatThenTourism",
+            "pos": 0,
+            "recommendationType": ["Restaurants", "Places Of Interest"]
+        },
+        {
+            "id": 1,
+            "name": "MuseumsBetter",
+            "pos": 1,
+            "recommendationType": ["Museums", "Places Of Interest","Shops"]
+        },
+        {
+            "id": 2,
+            "name": "PlacesOfInterestBetter",
+            "pos": 2,
+            "recommendationType": ["Places Of Interest","Leisure"]
+        }
+    ]
+}

@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">CARSProject</string>
+    <string name="facebook_app_id">1397113793988320</string> <string name="fb_login_protocol_scheme">fb1397113793988320</string>
+    <string name="maps_app_id">AIzaSyAweYZcuQKuxIyWnGeNilWmpdSKTtBsTuI</string>
+</resources>

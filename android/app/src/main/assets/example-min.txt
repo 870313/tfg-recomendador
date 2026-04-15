@@ -1,0 +1,37 @@
+@App:name("minimalJSONExample")
+
+define stream Context(json string);
+
+define stream UserContext(hasId string, date string, time string);
+
+define stream Results(contextId string, recommendation string);
+
+--@sink(type='log', prefix='LOGGER')
+define stream FinalResults(contextId string, recommendation string);
+
+-- Extraer UserContext desde JSON
+from Context
+select json:getString(json,'$.UserContext.hasId') as hasId,
+       json:getString(json,'$.UserContext.date') as date,
+       json:getString(json,'$.UserContext.time') as time
+insert into UserContext;
+
+-- Regla mínima: hora antes de 06:00
+@info(name='earlyTrigger')
+from UserContext[
+   (time:timestampInMilliseconds(time, 'HH:mm:ss')
+    - time:timestampInMilliseconds('00:00:00', 'HH:mm:ss')) <
+   (time:timestampInMilliseconds('06:00:00', 'HH:mm:ss')
+    - time:timestampInMilliseconds('00:00:00', 'HH:mm:ss'))
+]
+select hasId as contextId, "earlyMorning" as recommendation
+insert into Results;
+
+-- Regla mínima: fecha domingo
+@info(name='weekendTrigger')
+from UserContext[date == "2021/07/18"]
+select hasId as contextId, "weekend" as recommendation
+insert into Results;
+
+-- Log final
+@info(name = 'finalResults') from Results#window.timeBatch(2 sec) select contextId, str:groupConcat(recommendation) as recommendation group by contextId insert into FinalResults;

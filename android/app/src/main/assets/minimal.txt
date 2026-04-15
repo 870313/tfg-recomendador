@@ -1,0 +1,89 @@
+@App:name("minimalJSONExample")
+
+-- Stream de entrada JSON
+define stream Context(json string);
+
+-- Streams internos
+define stream UserContext(hasId string, date string, time string, status string, atHome string);
+define stream Observations(observedBy string, featureOfInterest string, observedProperty string, observationValue string, timeOfMeasurement string, hasId string, date string, time string, status string, atHome string);
+define stream Results(contextId string, recommendation string);
+
+-- Stream final para logging
+define stream FinalResults(contextId string, recommendation string);
+
+-- Extraer UserContext desde JSON
+from Context
+select json:getString(json,'$.UserContext.hasId') as hasId,
+       json:getString(json,'$.UserContext.date') as date,
+       json:getString(json,'$.UserContext.time') as time,
+       json:getString(json,'$.UserContext.status') as status,
+       json:getString(json,'$.UserContext.atHome') as atHome
+insert into UserContext;
+
+-- Extraer Observations desde JSON (tokenizar array)
+from Context#json:tokenizeAsObject(json, '$.Observations')
+select json:getString(jsonElement, '$.observedBy') as observedBy,
+       json:getString(jsonElement, '$.featureOfInterest') as featureOfInterest,
+       json:getString(jsonElement, '$.observedProperty') as observedProperty,
+       json:getString(jsonElement, '$.observationValue') as observationValue,
+       json:getString(jsonElement, '$.timeOfMeasurement') as timeOfMeasurement,
+       json:getString(json,'$.UserContext.hasId') as hasId,
+       json:getString(json,'$.UserContext.date') as date,
+       json:getString(json,'$.UserContext.time') as time,
+       json:getString(json,'$.UserContext.status') as status,
+       json:getString(json,'$.UserContext.atHome') as atHome
+insert into Observations;
+
+-- WEATHER STATUS STREAMS
+@info(name = 'getWeatherStatus')
+from Observations[observedProperty == 'WeatherStatus']
+select hasId as contextId, observationValue as weatherStatus
+insert into WeatherStatus;
+
+@info(name = 'isHotDay')
+from Observations[observedProperty == 'WeatherTemperature' and convert(observationValue, 'int') > 30]
+select hasId as contextId
+insert into isHot;
+
+@info(name = 'isColdDay')
+from Observations[observedProperty == 'WeatherTemperature' and convert(observationValue, 'int') < 5]
+select hasId as contextId
+insert into isCold;
+
+-- Stream de días de la semana
+@info(name = 'getDayOfWeek')
+from UserContext
+select hasId as contextId, time:dayOfWeek(date, 'yyyy/MM/dd') as dayOfWeek
+insert into DaysOfWeek;
+
+@info(name = 'isWeekend')
+from UserContext[time:dayOfWeek(date, 'yyyy/MM/dd') == 'Saturday' or time:dayOfWeek(date, 'yyyy/MM/dd') == 'Sunday']
+select hasId as contextId
+insert into Weekend;
+
+@info(name = 'notWeekend')
+from UserContext[time:dayOfWeek(date, 'yyyy/MM/dd') != 'Saturday' and time:dayOfWeek(date, 'yyyy/MM/dd') != 'Sunday']
+select hasId as contextId
+insert into NotWeekend;
+
+
+-- NUEVAS REGLAS COMBINANDO CLIMA Y DÍAS
+from Weekend#window.length(1) as W join WeatherStatus#window.length(1) as WS
+  on W.contextId == WS.contextId and WS.weatherStatus == 'Clear'
+select W.contextId as contextId, 'goPicnic' as recommendation
+insert into Results;
+
+
+-- Entre semana y frío → takeHotDrink
+from Weekend#window.length(1) as W join WeatherStatus#window.length(1) as WS
+  on W.contextId == WS.contextId and WS.weatherStatus == 'Clouds'
+select W.contextId as contextId, 'readBook' as recommendation
+insert into Results;
+
+
+-- Log final de recomendaciones agrupadas
+@info(name = 'finalResults')
+from Results#window.timeBatch(2 sec)
+select contextId, str:groupConcat(recommendation) as recommendation
+group by contextId
+insert into FinalResults;

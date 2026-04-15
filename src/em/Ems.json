@@ -1,0 +1,27 @@
+{
+    "list": [{
+        "address": "http://localhost:8080",
+        "id": "DemoEM",
+        "name": "Demo EM"
+    },{
+        "address": "http://cars-em3:8080",
+        "id": "DemoEM1",
+        "name": "Demo EM 1",
+        "coords": {
+            "lat": 41.6,
+            "lon": -0.9
+        }
+    }, {
+        "address": "http://cars-em3:8080",
+        "id": "ZgzEM",
+        "name": "Zaragoza EM",
+        "coords": {
+            "lat": 41.683237578328, 
+            "lon": -0.8876174776374158
+        }
+    }, {
+        "address": "http://cars-em3:8080",
+        "id": "DemoVirtualEM0",
+        "name": "Demo EM Virtual"
+    }]
+}

@@ -1,0 +1,477 @@
+@App:name("test")
+
+@App:description("Description of the plan")
+
+
+
+--@sink(type = 'log', prefix = 'LOGGER_Context')
+define stream Context (json string);
+
+-- @sink(type = 'log', prefix = 'LOGGER_UserContext')
+define stream UserContext(hasId string, date string, time string, status string, atHome string);
+
+-- @sink(type = 'log', prefix = 'LOGGER_Observations')
+define stream Observations(observedBy string, featureOfInterest string, observedProperty string, observationValue string,timeOfMeasurement  string, hasId string, date string, time string, status string, atHome string);
+
+-- @sink(type = 'log', prefix = 'LOGGER_Preferences')
+define stream Preferences(typeOf string, where string, hasId string, date string, time string, status string, atHome string);
+
+
+--@sink(type = 'log', prefix = 'LOGGER_season')
+define stream Season(contextId string, season string);
+
+--@sink(type = 'log', prefix = 'LOGGER_partOfTheDay')
+define stream PartsOfTheDay(contextId string, partOfTheDay string);
+
+--@sink(type = 'log', prefix = 'LOGGER_daysOfWeek')
+define stream DaysOfWeek (contextId string, dayOfWeek string);
+
+--@sink(type = 'log', prefix = 'LOGGER_weatherStatus')
+define stream WeatherStatus (contextId string, weatherStatus string);
+
+
+--@sink(type = 'log', prefix = 'LOGGER_Results')
+define stream Results(contextId string, recommendation string);
+
+@sink(type = 'log', prefix = 'LOGGER_HotDay')
+define stream isHot(contextId string);
+
+@sink(type = 'log', prefix = 'LOGGER_Recommendations')
+define stream Recommendations(contextId string, recommendation string);
+
+@sink(type = 'log', prefix = 'LOGGER_FinalResult')
+define stream FinalResults(contextId string, recommendation string);
+
+
+
+-- Get UserContext data from JSON Context
+@info(name='getUserContext')
+from Context
+select  json:getString(json,'$.UserContext.hasId') as hasId,
+        json:getString(json,'$.UserContext.date') as date,
+        json:getString(json,'$.UserContext.time') as time,
+        json:getString(json,'$.UserContext.status') as status,
+        json:getString(json,'$.UserContext.atHome') as atHome
+insert into UserContext;
+
+-- Get each element from Observations Array in JSON Context
+@info(name='getObservations')
+from Context#json:tokenizeAsObject(json, '$.Observations')
+select  json:getString(jsonElement, '$.observedBy') as observedBy,
+        json:getString(jsonElement, '$.featureOfInterest') as featureOfInterest,
+        json:getString(jsonElement, '$.observedProperty') as observedProperty,
+        json:getString(jsonElement, '$.observationValue') as observationValue,
+        json:getString(jsonElement, '$.timeOfMeasurement') as timeOfMeasurement,
+        json:getString(json,'$.UserContext.hasId') as hasId,
+        json:getString(json,'$.UserContext.date') as date,
+        json:getString(json,'$.UserContext.time') as time,
+        json:getString(json,'$.UserContext.status') as status,
+        json:getString(json,'$.UserContext.atHome') as atHome
+insert into Observations;
+
+-- Get each element from Preferences Array in JSON Context
+@info(name = 'getPreferences')
+from Context#json:tokenizeAsObject(json, '$.Preferences')
+select  json:getString(jsonElement, '$.typeOf') as typeOf,
+        json:getString(jsonElement, '$.where') as where,
+        json:getString(json,'$.UserContext.hasId') as hasId,
+        json:getString(json,'$.UserContext.date') as date,
+        json:getString(json,'$.UserContext.time') as time,
+        json:getString(json,'$.UserContext.status') as status,
+        json:getString(json,'$.UserContext.atHome') as atHome
+insert into Preferences;
+
+-- DAYS OF WEEK
+@info(name = 'getDayOfWeek')
+from UserContext
+select hasId as contextId, time:dayOfWeek(date, 'yyyy/MM/dd') as dayOfWeek
+insert into DaysOfWeek;
+
+@info(name = 'isWeekend')
+from UserContext[(time:dayOfWeek(date, 'yyyy/MM/dd') == 'sábado') or (time:dayOfWeek(date, 'yyyy/MM/dd') == 'domingo')]
+select hasId as contextId
+insert into Weekend;
+
+@info(name = 'notWeekend')
+from UserContext[time:dayOfWeek(date, 'yyyy/MM/dd') != 'sábado' and time:dayOfWeek(date, 'yyyy/MM/dd') != 'domingo']
+select hasId as contextId
+insert into NotWeekend;
+
+
+-- SEASONS
+-- isWinter
+@info(name = 'isWinter')
+from UserContext[(time:extract('MONTH', date, 'yyyy/MM/dd') == 12) or (time:extract('MONTH', date, 'yyyy/MM/dd') == 1) or (time:extract('MONTH', date, 'yyyy/MM/dd') == 2)]
+select hasId as contextId, 'winter' as season
+insert into Season;
+
+-- isSpring
+@info(name = 'isSpring')
+from UserContext[(time:extract('MONTH', date, 'yyyy/MM/dd') == 3) or (time:extract('MONTH', date, 'yyyy/MM/dd') == 4) or (time:extract('MONTH', date, 'yyyy/MM/dd') == 5)]
+select hasId as contextId, 'spring' as season
+insert into Season;
+
+-- isSummer
+@info(name = 'isSummer')
+from UserContext[(time:extract('MONTH', date, 'yyyy/MM/dd') == 6) or (time:extract('MONTH', date, 'yyyy/MM/dd') == 7) or (time:extract('MONTH', date, 'yyyy/MM/dd') == 8)]
+select hasId as contextId, 'summer' as season
+insert into Season;
+
+-- isAutumn
+@info(name = 'isAutumn')
+from UserContext[(time:extract('MONTH', date, 'yyyy/MM/dd') == 9) or (time:extract('MONTH', date, 'yyyy/MM/dd') == 10) or (time:extract('MONTH', date, 'yyyy/MM/dd') == 11)]
+select hasId as contextId, 'autumn' as season
+insert into Season;
+
+
+-- PARTS OF THE DAY
+-- isEarlyMorning
+@info(name='isEarlyMorning')
+from UserContext[((time:timestampInMilliseconds(time, 'HH:mm:ss') - time:timestampInMilliseconds('00:00:00', 'HH:mm:ss')) >= 0) and ((time:timestampInMilliseconds(time, 'HH:mm:ss') - time:timestampInMilliseconds('06:30:00', 'HH:mm:ss')) < 0)]
+select hasId as contextId, 'earlyMorning' as partOfTheDay
+insert into PartsOfTheDay;
+
+@info(name='isMorning')
+from UserContext[((time:timestampInMilliseconds(time, 'HH:mm:ss') - time:timestampInMilliseconds('06:30:00', 'HH:mm:ss')) >= 0) and ((time:timestampInMilliseconds(time, 'HH:mm:ss') - time:timestampInMilliseconds('12:00:00', 'HH:mm:ss')) < 0)]
+select hasId as contextId, 'morning' as partOfTheDay
+insert into PartsOfTheDay;
+
+@info(name='isAfternoon')
+from UserContext[((time:timestampInMilliseconds(time, 'HH:mm:ss') - time:timestampInMilliseconds('12:00:00', 'HH:mm:ss')) >= 0) and ((time:timestampInMilliseconds(time, 'HH:mm:ss') - time:timestampInMilliseconds('19:00:00', 'HH:mm:ss')) < 0)]
+select hasId as contextId, 'afternoon' as partOfTheDay
+insert into PartsOfTheDay;
+
+@info(name='isNight')
+from UserContext[((time:timestampInMilliseconds(time, 'HH:mm:ss') - time:timestampInMilliseconds('19:00:00', 'HH:mm:ss')) >= 0)]
+select hasId as contextId, 'night' as partOfTheDay
+insert into PartsOfTheDay;
+
+@info(name='time4Lunch')
+from UserContext[((time:timestampInMilliseconds(time, 'HH:mm:ss') - time:timestampInMilliseconds('12:30:00', 'HH:mm:ss')) >= 0) and ((time:timestampInMilliseconds(time, 'HH:mm:ss') - time:timestampInMilliseconds('15:30:00', 'HH:mm:ss')) < 0)]
+select hasId as contextId
+insert into Time4Lunch;
+
+@info(name='time4Dinner')
+from UserContext[((time:timestampInMilliseconds(time, 'HH:mm:ss') - time:timestampInMilliseconds('20:30:00', 'HH:mm:ss')) >= 0) and ((time:timestampInMilliseconds(time, 'HH:mm:ss') - time:timestampInMilliseconds('23:00:00', 'HH:mm:ss')) < 0)]
+select hasId as contextId
+insert into Time4Dinner;
+
+
+-- WEATHER STATUS
+@info(name = 'getWeatherStatus')
+from Observations[observedProperty == 'WeatherStatus']
+select hasId as contextId, observationValue as weatherStatus
+insert into WeatherStatus;
+
+@info(name = 'isHotDay')
+from Observations[observedProperty == 'WeatherTemperature' and convert(observationValue, 'int') > 30]
+select hasId as contextId
+insert into isHot;
+
+@info(name = 'isColdDay')
+from Observations[observedProperty == 'WeatherTemperature' and convert(observationValue, 'int') < 5]
+select hasId as contextId
+insert into isCold;
+
+@info('trigger0')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every s = Season[contextId == d.contextId and season == 'autumn'] select d.contextId, 'trigger0' as recommendation insert into Results;
+@info('trigger1')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'earlyMorning'] select d.contextId, 'trigger1' as recommendation insert into Results;
+@info('trigger2')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Atmosphere'] select d.contextId, 'trigger2' as recommendation insert into Results;
+@info('trigger3')from every d = DaysOfWeek[dayOfWeek == 'viernes'] select d.contextId, 'trigger3' as recommendation insert into Results;
+@info('trigger4')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every s = Season[contextId == d.contextId and season == 'summer'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] select d.contextId, 'trigger4' as recommendation insert into Results;
+@info('trigger5')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every p = Time4Lunch[contextId == d.contextId] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Rain'] select d.contextId, 'trigger5' as recommendation insert into Results;
+@info('trigger6')from every d = DaysOfWeek[dayOfWeek == 'lunes'] select d.contextId, 'trigger6' as recommendation insert into Results;
+@info('trigger7')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] select d.contextId, 'trigger7' as recommendation insert into Results;
+@info('trigger8')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Atmosphere'] select d.contextId, 'trigger8' as recommendation insert into Results;
+@info('trigger9')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Rain'] select d.contextId, 'trigger9' as recommendation insert into Results;
+@info('trigger10')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Snow'] select d.contextId, 'trigger10' as recommendation insert into Results;
+@info('trigger11')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clear'] select d.contextId, 'trigger11' as recommendation insert into Results;
+@info('trigger12')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every s = Season[contextId == d.contextId and season == 'spring'] select d.contextId, 'trigger12' as recommendation insert into Results;
+@info('trigger13')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] -> every p = Time4Dinner[contextId == d.contextId] select d.contextId, 'trigger13' as recommendation insert into Results;
+@info('trigger14')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every s = Season[contextId == d.contextId and season == 'winter'] select d.contextId, 'trigger14' as recommendation insert into Results;
+@info('trigger15')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every s = Season[contextId == d.contextId and season == 'summer'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'no'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Snow'] select d.contextId, 'trigger15' as recommendation insert into Results;
+@info('trigger16')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every s = Season[contextId == d.contextId and season == 'summer'] select d.contextId, 'trigger16' as recommendation insert into Results;
+@info('trigger17')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'no'] select d.contextId, 'trigger17' as recommendation insert into Results;
+@info('trigger18')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] select d.contextId, 'trigger18' as recommendation insert into Results;
+@info('trigger19')from every d = DaysOfWeek[dayOfWeek == 'domingo'] select d.contextId, 'trigger19' as recommendation insert into Results;
+@info('trigger20')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] select d.contextId, 'trigger20' as recommendation insert into Results;
+@info('trigger21')from every d = DaysOfWeek[dayOfWeek == 'jueves'] select d.contextId, 'trigger21' as recommendation insert into Results;
+@info('trigger22')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] select d.contextId, 'trigger22' as recommendation insert into Results;
+@info('trigger23')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] select d.contextId, 'trigger23' as recommendation insert into Results;
+@info('trigger24')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every s = Season[contextId == d.contextId and season == 'spring'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clear'] select d.contextId, 'trigger24' as recommendation insert into Results;
+@info('trigger25')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'yes'] select d.contextId, 'trigger25' as recommendation insert into Results;
+@info('trigger26')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'earlyMorning'] select d.contextId, 'trigger26' as recommendation insert into Results;
+@info('trigger27')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every s = Season[contextId == d.contextId and season == 'winter'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Snow'] select d.contextId, 'trigger27' as recommendation insert into Results;
+@info('trigger28')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every s = Season[contextId == d.contextId and season == 'summer'] select d.contextId, 'trigger28' as recommendation insert into Results;
+@info('trigger29')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Thunderstorm'] select d.contextId, 'trigger29' as recommendation insert into Results;
+@info('trigger30')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'earlyMorning'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'no'] select d.contextId, 'trigger30' as recommendation insert into Results;
+@info('trigger31')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every s = Season[contextId == d.contextId and season == 'spring'] select d.contextId, 'trigger31' as recommendation insert into Results;
+@info('trigger32')from every d = DaysOfWeek[dayOfWeek == 'martes'] select d.contextId, 'trigger32' as recommendation insert into Results;
+@info('trigger33')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clear'] select d.contextId, 'trigger33' as recommendation insert into Results;
+@info('trigger34')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every s = Season[contextId == d.contextId and season == 'spring'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'yes'] select d.contextId, 'trigger34' as recommendation insert into Results;
+@info('trigger35')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every s = Season[contextId == d.contextId and season == 'spring'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] select d.contextId, 'trigger35' as recommendation insert into Results;
+@info('trigger36')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every s = Season[contextId == d.contextId and season == 'winter'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'no'] select d.contextId, 'trigger36' as recommendation insert into Results;
+@info('trigger37')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] select d.contextId, 'trigger37' as recommendation insert into Results;
+@info('trigger38')from every d = DaysOfWeek[dayOfWeek == 'sábado'] select d.contextId, 'trigger38' as recommendation insert into Results;
+@info('trigger39')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] -> every p = Time4Dinner[contextId == d.contextId] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'no'] select d.contextId, 'trigger39' as recommendation insert into Results;
+@info('trigger40')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every s = Season[contextId == d.contextId and season == 'spring'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Drizzle'] select d.contextId, 'trigger40' as recommendation insert into Results;
+@info('trigger41')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] select d.contextId, 'trigger41' as recommendation insert into Results;
+@info('trigger42')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] -> every p = Time4Dinner[contextId == d.contextId] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clear'] select d.contextId, 'trigger42' as recommendation insert into Results;
+@info('trigger43')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] select d.contextId, 'trigger43' as recommendation insert into Results;
+@info('trigger44')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every s = Season[contextId == d.contextId and season == 'spring'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'earlyMorning'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'no'] select d.contextId, 'trigger44' as recommendation insert into Results;
+@info('trigger45')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] -> every p = Time4Dinner[contextId == d.contextId] select d.contextId, 'trigger45' as recommendation insert into Results;
+@info('trigger46')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'no'] select d.contextId, 'trigger46' as recommendation insert into Results;
+@info('trigger47')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clouds'] select d.contextId, 'trigger47' as recommendation insert into Results;
+@info('trigger48')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every s = Season[contextId == d.contextId and season == 'summer'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every p = Time4Lunch[contextId == d.contextId] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'yes'] select d.contextId, 'trigger48' as recommendation insert into Results;
+@info('trigger49')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] select d.contextId, 'trigger49' as recommendation insert into Results;
+@info('trigger50')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every s = Season[contextId == d.contextId and season == 'spring'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] -> every p = Time4Dinner[contextId == d.contextId] select d.contextId, 'trigger50' as recommendation insert into Results;
+@info('trigger51')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every s = Season[contextId == d.contextId and season == 'autumn'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] select d.contextId, 'trigger51' as recommendation insert into Results;
+@info('trigger52')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every s = Season[contextId == d.contextId and season == 'spring'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Snow'] select d.contextId, 'trigger52' as recommendation insert into Results;
+@info('trigger53')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every s = Season[contextId == d.contextId and season == 'spring'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'no'] select d.contextId, 'trigger53' as recommendation insert into Results;
+@info('trigger54')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'no'] select d.contextId, 'trigger54' as recommendation insert into Results;
+@info('trigger55')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'no'] select d.contextId, 'trigger55' as recommendation insert into Results;
+@info('trigger56')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'earlyMorning'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] select d.contextId, 'trigger56' as recommendation insert into Results;
+@info('trigger57')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'no'] select d.contextId, 'trigger57' as recommendation insert into Results;
+@info('trigger58')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every p = Time4Lunch[contextId == d.contextId] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clouds'] select d.contextId, 'trigger58' as recommendation insert into Results;
+@info('trigger59')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Atmosphere'] select d.contextId, 'trigger59' as recommendation insert into Results;
+@info('trigger60')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every s = Season[contextId == d.contextId and season == 'autumn'] select d.contextId, 'trigger60' as recommendation insert into Results;
+@info('trigger61')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Rain'] select d.contextId, 'trigger61' as recommendation insert into Results;
+@info('trigger62')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] select d.contextId, 'trigger62' as recommendation insert into Results;
+@info('trigger63')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clouds'] select d.contextId, 'trigger63' as recommendation insert into Results;
+@info('trigger64')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Thunderstorm'] select d.contextId, 'trigger64' as recommendation insert into Results;
+@info('trigger65')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] select d.contextId, 'trigger65' as recommendation insert into Results;
+@info('trigger66')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every s = Season[contextId == d.contextId and season == 'summer'] select d.contextId, 'trigger66' as recommendation insert into Results;
+@info('trigger67')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every s = Season[contextId == d.contextId and season == 'autumn'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] select d.contextId, 'trigger67' as recommendation insert into Results;
+@info('trigger68')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] select d.contextId, 'trigger68' as recommendation insert into Results;
+@info('trigger69')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'yes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Atmosphere'] select d.contextId, 'trigger69' as recommendation insert into Results;
+@info('trigger70')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every s = Season[contextId == d.contextId and season == 'summer'] select d.contextId, 'trigger70' as recommendation insert into Results;
+@info('trigger71')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'earlyMorning'] select d.contextId, 'trigger71' as recommendation insert into Results;
+@info('trigger72')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every s = Season[contextId == d.contextId and season == 'summer'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every p = Time4Lunch[contextId == d.contextId] select d.contextId, 'trigger72' as recommendation insert into Results;
+@info('trigger73')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'yes'] select d.contextId, 'trigger73' as recommendation insert into Results;
+@info('trigger74')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every s = Season[contextId == d.contextId and season == 'summer'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] select d.contextId, 'trigger74' as recommendation insert into Results;
+@info('trigger75')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clouds'] select d.contextId, 'trigger75' as recommendation insert into Results;
+@info('trigger76')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] select d.contextId, 'trigger76' as recommendation insert into Results;
+@info('trigger77')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every s = Season[contextId == d.contextId and season == 'spring'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] -> every p = Time4Dinner[contextId == d.contextId] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Rain'] select d.contextId, 'trigger77' as recommendation insert into Results;
+@info('trigger78')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every s = Season[contextId == d.contextId and season == 'autumn'] select d.contextId, 'trigger78' as recommendation insert into Results;
+@info('trigger79')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'earlyMorning'] select d.contextId, 'trigger79' as recommendation insert into Results;
+@info('trigger80')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Drizzle'] select d.contextId, 'trigger80' as recommendation insert into Results;
+@info('trigger81')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every s = Season[contextId == d.contextId and season == 'winter'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clouds'] select d.contextId, 'trigger81' as recommendation insert into Results;
+@info('trigger82')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every s = Season[contextId == d.contextId and season == 'summer'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clouds'] select d.contextId, 'trigger82' as recommendation insert into Results;
+@info('trigger83')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every s = Season[contextId == d.contextId and season == 'spring'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every p = Time4Lunch[contextId == d.contextId] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Drizzle'] select d.contextId, 'trigger83' as recommendation insert into Results;
+@info('trigger84')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every s = Season[contextId == d.contextId and season == 'winter'] select d.contextId, 'trigger84' as recommendation insert into Results;
+@info('trigger85')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] -> every p = Time4Dinner[contextId == d.contextId] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Rain'] select d.contextId, 'trigger85' as recommendation insert into Results;
+@info('trigger86')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every s = Season[contextId == d.contextId and season == 'winter'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Rain'] select d.contextId, 'trigger86' as recommendation insert into Results;
+@info('trigger87')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clouds'] select d.contextId, 'trigger87' as recommendation insert into Results;
+@info('trigger88')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'no'] select d.contextId, 'trigger88' as recommendation insert into Results;
+@info('trigger89')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every s = Season[contextId == d.contextId and season == 'summer'] select d.contextId, 'trigger89' as recommendation insert into Results;
+@info('trigger90')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clouds'] select d.contextId, 'trigger90' as recommendation insert into Results;
+@info('trigger91')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'no'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Thunderstorm'] select d.contextId, 'trigger91' as recommendation insert into Results;
+@info('trigger92')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every s = Season[contextId == d.contextId and season == 'winter'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'no'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clear'] select d.contextId, 'trigger92' as recommendation insert into Results;
+@info('trigger93')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every s = Season[contextId == d.contextId and season == 'spring'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] select d.contextId, 'trigger93' as recommendation insert into Results;
+@info('trigger94')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] -> every p = Time4Dinner[contextId == d.contextId] select d.contextId, 'trigger94' as recommendation insert into Results;
+@info('trigger95')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'earlyMorning'] select d.contextId, 'trigger95' as recommendation insert into Results;
+@info('trigger96')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every s = Season[contextId == d.contextId and season == 'autumn'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] select d.contextId, 'trigger96' as recommendation insert into Results;
+@info('trigger97')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every s = Season[contextId == d.contextId and season == 'spring'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'no'] select d.contextId, 'trigger97' as recommendation insert into Results;
+@info('trigger98')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every p = Time4Lunch[contextId == d.contextId] select d.contextId, 'trigger98' as recommendation insert into Results;
+@info('trigger99')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every s = Season[contextId == d.contextId and season == 'autumn'] select d.contextId, 'trigger99' as recommendation insert into Results;
+@info('trigger100')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every s = Season[contextId == d.contextId and season == 'winter'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'yes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Rain'] select d.contextId, 'trigger100' as recommendation insert into Results;
+@info('trigger101')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Rain'] select d.contextId, 'trigger101' as recommendation insert into Results;
+@info('trigger102')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Thunderstorm'] select d.contextId, 'trigger102' as recommendation insert into Results;
+@info('trigger103')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] select d.contextId, 'trigger103' as recommendation insert into Results;
+@info('trigger104')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every s = Season[contextId == d.contextId and season == 'spring'] select d.contextId, 'trigger104' as recommendation insert into Results;
+@info('trigger105')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clouds'] select d.contextId, 'trigger105' as recommendation insert into Results;
+@info('trigger106')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every s = Season[contextId == d.contextId and season == 'spring'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Rain'] select d.contextId, 'trigger106' as recommendation insert into Results;
+@info('trigger107')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Thunderstorm'] select d.contextId, 'trigger107' as recommendation insert into Results;
+@info('trigger108')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Snow'] select d.contextId, 'trigger108' as recommendation insert into Results;
+@info('trigger109')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'earlyMorning'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'yes'] select d.contextId, 'trigger109' as recommendation insert into Results;
+@info('trigger110')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Thunderstorm'] select d.contextId, 'trigger110' as recommendation insert into Results;
+@info('trigger111')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every s = Season[contextId == d.contextId and season == 'spring'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] select d.contextId, 'trigger111' as recommendation insert into Results;
+@info('trigger112')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every s = Season[contextId == d.contextId and season == 'spring'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Snow'] select d.contextId, 'trigger112' as recommendation insert into Results;
+@info('trigger113')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clear'] select d.contextId, 'trigger113' as recommendation insert into Results;
+@info('trigger114')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'earlyMorning'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] select d.contextId, 'trigger114' as recommendation insert into Results;
+@info('trigger115')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every s = Season[contextId == d.contextId and season == 'autumn'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] select d.contextId, 'trigger115' as recommendation insert into Results;
+@info('trigger116')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every s = Season[contextId == d.contextId and season == 'winter'] select d.contextId, 'trigger116' as recommendation insert into Results;
+@info('trigger117')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'yes'] select d.contextId, 'trigger117' as recommendation insert into Results;
+@info('trigger118')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Thunderstorm'] select d.contextId, 'trigger118' as recommendation insert into Results;
+@info('trigger119')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Atmosphere'] select d.contextId, 'trigger119' as recommendation insert into Results;
+@info('trigger120')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] select d.contextId, 'trigger120' as recommendation insert into Results;
+@info('trigger121')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Snow'] select d.contextId, 'trigger121' as recommendation insert into Results;
+@info('trigger122')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every s = Season[contextId == d.contextId and season == 'autumn'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'earlyMorning'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clear'] select d.contextId, 'trigger122' as recommendation insert into Results;
+@info('trigger123')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every s = Season[contextId == d.contextId and season == 'winter'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'no'] select d.contextId, 'trigger123' as recommendation insert into Results;
+@info('trigger124')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Rain'] select d.contextId, 'trigger124' as recommendation insert into Results;
+@info('trigger125')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every s = Season[contextId == d.contextId and season == 'summer'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] -> every p = Time4Dinner[contextId == d.contextId] select d.contextId, 'trigger125' as recommendation insert into Results;
+@info('trigger126')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Snow'] select d.contextId, 'trigger126' as recommendation insert into Results;
+@info('trigger127')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Rain'] select d.contextId, 'trigger127' as recommendation insert into Results;
+@info('trigger128')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every s = Season[contextId == d.contextId and season == 'autumn'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Drizzle'] select d.contextId, 'trigger128' as recommendation insert into Results;
+@info('trigger129')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'no'] select d.contextId, 'trigger129' as recommendation insert into Results;
+@info('trigger130')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'no'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clear'] select d.contextId, 'trigger130' as recommendation insert into Results;
+@info('trigger131')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] select d.contextId, 'trigger131' as recommendation insert into Results;
+@info('trigger132')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Atmosphere'] select d.contextId, 'trigger132' as recommendation insert into Results;
+@info('trigger133')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] -> every p = Time4Dinner[contextId == d.contextId] select d.contextId, 'trigger133' as recommendation insert into Results;
+@info('trigger134')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every s = Season[contextId == d.contextId and season == 'spring'] select d.contextId, 'trigger134' as recommendation insert into Results;
+@info('trigger135')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Thunderstorm'] select d.contextId, 'trigger135' as recommendation insert into Results;
+@info('trigger136')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every s = Season[contextId == d.contextId and season == 'autumn'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'earlyMorning'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Rain'] select d.contextId, 'trigger136' as recommendation insert into Results;
+@info('trigger137')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every s = Season[contextId == d.contextId and season == 'summer'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'earlyMorning'] select d.contextId, 'trigger137' as recommendation insert into Results;
+@info('trigger138')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every s = Season[contextId == d.contextId and season == 'winter'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every p = Time4Lunch[contextId == d.contextId] select d.contextId, 'trigger138' as recommendation insert into Results;
+@info('trigger139')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every s = Season[contextId == d.contextId and season == 'winter'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every p = Time4Lunch[contextId == d.contextId] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'no'] select d.contextId, 'trigger139' as recommendation insert into Results;
+@info('trigger140')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Atmosphere'] select d.contextId, 'trigger140' as recommendation insert into Results;
+@info('trigger141')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clouds'] select d.contextId, 'trigger141' as recommendation insert into Results;
+@info('trigger142')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Drizzle'] select d.contextId, 'trigger142' as recommendation insert into Results;
+@info('trigger143')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clouds'] select d.contextId, 'trigger143' as recommendation insert into Results;
+@info('trigger144')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'earlyMorning'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'no'] select d.contextId, 'trigger144' as recommendation insert into Results;
+@info('trigger145')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] select d.contextId, 'trigger145' as recommendation insert into Results;
+@info('trigger146')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every p = Time4Lunch[contextId == d.contextId] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Atmosphere'] select d.contextId, 'trigger146' as recommendation insert into Results;
+@info('trigger147')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] -> every p = Time4Dinner[contextId == d.contextId] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Drizzle'] select d.contextId, 'trigger147' as recommendation insert into Results;
+@info('trigger148')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'no'] select d.contextId, 'trigger148' as recommendation insert into Results;
+@info('trigger149')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] select d.contextId, 'trigger149' as recommendation insert into Results;
+@info('trigger150')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every s = Season[contextId == d.contextId and season == 'spring'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'no'] select d.contextId, 'trigger150' as recommendation insert into Results;
+@info('trigger151')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] select d.contextId, 'trigger151' as recommendation insert into Results;
+@info('trigger152')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'no'] select d.contextId, 'trigger152' as recommendation insert into Results;
+@info('trigger153')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every s = Season[contextId == d.contextId and season == 'winter'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Rain'] select d.contextId, 'trigger153' as recommendation insert into Results;
+@info('trigger154')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'no'] select d.contextId, 'trigger154' as recommendation insert into Results;
+@info('trigger155')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Atmosphere'] select d.contextId, 'trigger155' as recommendation insert into Results;
+@info('trigger156')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Drizzle'] select d.contextId, 'trigger156' as recommendation insert into Results;
+@info('trigger157')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Thunderstorm'] select d.contextId, 'trigger157' as recommendation insert into Results;
+@info('trigger158')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Rain'] select d.contextId, 'trigger158' as recommendation insert into Results;
+@info('trigger159')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every s = Season[contextId == d.contextId and season == 'summer'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] select d.contextId, 'trigger159' as recommendation insert into Results;
+@info('trigger160')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every s = Season[contextId == d.contextId and season == 'winter'] select d.contextId, 'trigger160' as recommendation insert into Results;
+@info('trigger161')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every s = Season[contextId == d.contextId and season == 'winter'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'no'] select d.contextId, 'trigger161' as recommendation insert into Results;
+@info('trigger162')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every s = Season[contextId == d.contextId and season == 'autumn'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Atmosphere'] select d.contextId, 'trigger162' as recommendation insert into Results;
+@info('trigger163')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every s = Season[contextId == d.contextId and season == 'summer'] select d.contextId, 'trigger163' as recommendation insert into Results;
+@info('trigger164')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every s = Season[contextId == d.contextId and season == 'summer'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Drizzle'] select d.contextId, 'trigger164' as recommendation insert into Results;
+@info('trigger165')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] -> every p = Time4Dinner[contextId == d.contextId] select d.contextId, 'trigger165' as recommendation insert into Results;
+@info('trigger166')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'yes'] select d.contextId, 'trigger166' as recommendation insert into Results;
+@info('trigger167')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every s = Season[contextId == d.contextId and season == 'autumn'] select d.contextId, 'trigger167' as recommendation insert into Results;
+@info('trigger168')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'yes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clear'] select d.contextId, 'trigger168' as recommendation insert into Results;
+@info('trigger169')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every s = Season[contextId == d.contextId and season == 'winter'] select d.contextId, 'trigger169' as recommendation insert into Results;
+@info('trigger170')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] -> every p = Time4Dinner[contextId == d.contextId] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clear'] select d.contextId, 'trigger170' as recommendation insert into Results;
+@info('trigger171')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clouds'] select d.contextId, 'trigger171' as recommendation insert into Results;
+@info('trigger172')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every s = Season[contextId == d.contextId and season == 'summer'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'earlyMorning'] select d.contextId, 'trigger172' as recommendation insert into Results;
+@info('trigger173')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every s = Season[contextId == d.contextId and season == 'winter'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'no'] select d.contextId, 'trigger173' as recommendation insert into Results;
+@info('trigger174')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every s = Season[contextId == d.contextId and season == 'autumn'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'earlyMorning'] select d.contextId, 'trigger174' as recommendation insert into Results;
+@info('trigger175')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Atmosphere'] select d.contextId, 'trigger175' as recommendation insert into Results;
+@info('trigger176')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every s = Season[contextId == d.contextId and season == 'summer'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'earlyMorning'] select d.contextId, 'trigger176' as recommendation insert into Results;
+@info('trigger177')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every s = Season[contextId == d.contextId and season == 'winter'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'yes'] select d.contextId, 'trigger177' as recommendation insert into Results;
+@info('trigger178')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every s = Season[contextId == d.contextId and season == 'autumn'] select d.contextId, 'trigger178' as recommendation insert into Results;
+@info('trigger179')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Drizzle'] select d.contextId, 'trigger179' as recommendation insert into Results;
+@info('trigger180')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] select d.contextId, 'trigger180' as recommendation insert into Results;
+@info('trigger181')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every s = Season[contextId == d.contextId and season == 'autumn'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Thunderstorm'] select d.contextId, 'trigger181' as recommendation insert into Results;
+@info('trigger182')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Atmosphere'] select d.contextId, 'trigger182' as recommendation insert into Results;
+@info('trigger183')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'yes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Thunderstorm'] select d.contextId, 'trigger183' as recommendation insert into Results;
+@info('trigger184')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every p = Time4Lunch[contextId == d.contextId] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] select d.contextId, 'trigger184' as recommendation insert into Results;
+@info('trigger185')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every p = Time4Lunch[contextId == d.contextId] select d.contextId, 'trigger185' as recommendation insert into Results;
+@info('trigger186')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'no'] select d.contextId, 'trigger186' as recommendation insert into Results;
+@info('trigger187')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every s = Season[contextId == d.contextId and season == 'spring'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] select d.contextId, 'trigger187' as recommendation insert into Results;
+@info('trigger188')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'earlyMorning'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'yes'] select d.contextId, 'trigger188' as recommendation insert into Results;
+@info('trigger189')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every s = Season[contextId == d.contextId and season == 'spring'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Atmosphere'] select d.contextId, 'trigger189' as recommendation insert into Results;
+@info('trigger190')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Thunderstorm'] select d.contextId, 'trigger190' as recommendation insert into Results;
+@info('trigger191')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'yes'] select d.contextId, 'trigger191' as recommendation insert into Results;
+@info('trigger192')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every s = Season[contextId == d.contextId and season == 'winter'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] select d.contextId, 'trigger192' as recommendation insert into Results;
+@info('trigger193')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every s = Season[contextId == d.contextId and season == 'autumn'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Thunderstorm'] select d.contextId, 'trigger193' as recommendation insert into Results;
+@info('trigger194')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Atmosphere'] select d.contextId, 'trigger194' as recommendation insert into Results;
+@info('trigger195')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every s = Season[contextId == d.contextId and season == 'autumn'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] select d.contextId, 'trigger195' as recommendation insert into Results;
+@info('trigger196')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every s = Season[contextId == d.contextId and season == 'autumn'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Snow'] select d.contextId, 'trigger196' as recommendation insert into Results;
+@info('trigger197')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'no'] select d.contextId, 'trigger197' as recommendation insert into Results;
+@info('trigger198')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'no'] select d.contextId, 'trigger198' as recommendation insert into Results;
+@info('trigger199')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every s = Season[contextId == d.contextId and season == 'spring'] select d.contextId, 'trigger199' as recommendation insert into Results;
+@info('trigger200')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every s = Season[contextId == d.contextId and season == 'winter'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Snow'] select d.contextId, 'trigger200' as recommendation insert into Results;
+@info('trigger201')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clouds'] select d.contextId, 'trigger201' as recommendation insert into Results;
+@info('trigger202')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'earlyMorning'] select d.contextId, 'trigger202' as recommendation insert into Results;
+@info('trigger203')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clear'] select d.contextId, 'trigger203' as recommendation insert into Results;
+@info('trigger204')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every s = Season[contextId == d.contextId and season == 'winter'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] -> every p = Time4Dinner[contextId == d.contextId] select d.contextId, 'trigger204' as recommendation insert into Results;
+@info('trigger205')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every s = Season[contextId == d.contextId and season == 'autumn'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'earlyMorning'] select d.contextId, 'trigger205' as recommendation insert into Results;
+@info('trigger206')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'earlyMorning'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Snow'] select d.contextId, 'trigger206' as recommendation insert into Results;
+@info('trigger207')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every s = Season[contextId == d.contextId and season == 'winter'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'earlyMorning'] select d.contextId, 'trigger207' as recommendation insert into Results;
+@info('trigger208')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] select d.contextId, 'trigger208' as recommendation insert into Results;
+@info('trigger209')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'yes'] select d.contextId, 'trigger209' as recommendation insert into Results;
+@info('trigger210')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every s = Season[contextId == d.contextId and season == 'autumn'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'no'] select d.contextId, 'trigger210' as recommendation insert into Results;
+@info('trigger211')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] -> every p = Time4Dinner[contextId == d.contextId] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'no'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Atmosphere'] select d.contextId, 'trigger211' as recommendation insert into Results;
+@info('trigger212')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clear'] select d.contextId, 'trigger212' as recommendation insert into Results;
+@info('trigger213')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every s = Season[contextId == d.contextId and season == 'autumn'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Thunderstorm'] select d.contextId, 'trigger213' as recommendation insert into Results;
+@info('trigger214')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'yes'] select d.contextId, 'trigger214' as recommendation insert into Results;
+@info('trigger215')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every s = Season[contextId == d.contextId and season == 'summer'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] select d.contextId, 'trigger215' as recommendation insert into Results;
+@info('trigger216')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every s = Season[contextId == d.contextId and season == 'autumn'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'no'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clear'] select d.contextId, 'trigger216' as recommendation insert into Results;
+@info('trigger217')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every p = Time4Lunch[contextId == d.contextId] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'yes'] select d.contextId, 'trigger217' as recommendation insert into Results;
+@info('trigger218')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every s = Season[contextId == d.contextId and season == 'winter'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] -> every p = Time4Dinner[contextId == d.contextId] select d.contextId, 'trigger218' as recommendation insert into Results;
+@info('trigger219')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] select d.contextId, 'trigger219' as recommendation insert into Results;
+@info('trigger220')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'no'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clear'] select d.contextId, 'trigger220' as recommendation insert into Results;
+@info('trigger221')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] -> every p = Time4Dinner[contextId == d.contextId] select d.contextId, 'trigger221' as recommendation insert into Results;
+@info('trigger222')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Drizzle'] select d.contextId, 'trigger222' as recommendation insert into Results;
+@info('trigger223')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every p = Time4Lunch[contextId == d.contextId] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Drizzle'] select d.contextId, 'trigger223' as recommendation insert into Results;
+@info('trigger224')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Snow'] select d.contextId, 'trigger224' as recommendation insert into Results;
+@info('trigger225')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every s = Season[contextId == d.contextId and season == 'winter'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] select d.contextId, 'trigger225' as recommendation insert into Results;
+@info('trigger226')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'earlyMorning'] select d.contextId, 'trigger226' as recommendation insert into Results;
+@info('trigger227')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every s = Season[contextId == d.contextId and season == 'autumn'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] select d.contextId, 'trigger227' as recommendation insert into Results;
+@info('trigger228')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every s = Season[contextId == d.contextId and season == 'summer'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] select d.contextId, 'trigger228' as recommendation insert into Results;
+@info('trigger229')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] -> every p = Time4Dinner[contextId == d.contextId] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Atmosphere'] select d.contextId, 'trigger229' as recommendation insert into Results;
+@info('trigger230')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every s = Season[contextId == d.contextId and season == 'autumn'] select d.contextId, 'trigger230' as recommendation insert into Results;
+@info('trigger231')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every p = Time4Lunch[contextId == d.contextId] select d.contextId, 'trigger231' as recommendation insert into Results;
+@info('trigger232')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'no'] select d.contextId, 'trigger232' as recommendation insert into Results;
+@info('trigger233')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every s = Season[contextId == d.contextId and season == 'spring'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Thunderstorm'] select d.contextId, 'trigger233' as recommendation insert into Results;
+@info('trigger234')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'no'] select d.contextId, 'trigger234' as recommendation insert into Results;
+@info('trigger235')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Thunderstorm'] select d.contextId, 'trigger235' as recommendation insert into Results;
+@info('trigger236')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'no'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Rain'] select d.contextId, 'trigger236' as recommendation insert into Results;
+@info('trigger237')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'earlyMorning'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'no'] select d.contextId, 'trigger237' as recommendation insert into Results;
+@info('trigger238')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every s = Season[contextId == d.contextId and season == 'autumn'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Rain'] select d.contextId, 'trigger238' as recommendation insert into Results;
+@info('trigger239')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every s = Season[contextId == d.contextId and season == 'spring'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'no'] select d.contextId, 'trigger239' as recommendation insert into Results;
+@info('trigger240')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Drizzle'] select d.contextId, 'trigger240' as recommendation insert into Results;
+@info('trigger241')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every s = Season[contextId == d.contextId and season == 'winter'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'earlyMorning'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Thunderstorm'] select d.contextId, 'trigger241' as recommendation insert into Results;
+@info('trigger242')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] select d.contextId, 'trigger242' as recommendation insert into Results;
+@info('trigger243')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] select d.contextId, 'trigger243' as recommendation insert into Results;
+@info('trigger244')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'no'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clouds'] select d.contextId, 'trigger244' as recommendation insert into Results;
+@info('trigger245')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every s = Season[contextId == d.contextId and season == 'autumn'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] select d.contextId, 'trigger245' as recommendation insert into Results;
+@info('trigger246')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'yes'] select d.contextId, 'trigger246' as recommendation insert into Results;
+@info('trigger247')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'no'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Snow'] select d.contextId, 'trigger247' as recommendation insert into Results;
+@info('trigger248')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every s = Season[contextId == d.contextId and season == 'spring'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] select d.contextId, 'trigger248' as recommendation insert into Results;
+@info('trigger249')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every s = Season[contextId == d.contextId and season == 'spring'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] select d.contextId, 'trigger249' as recommendation insert into Results;
+@info('trigger250')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'no'] select d.contextId, 'trigger250' as recommendation insert into Results;
+@info('trigger251')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every s = Season[contextId == d.contextId and season == 'winter'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'no'] select d.contextId, 'trigger251' as recommendation insert into Results;
+@info('trigger252')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Rain'] select d.contextId, 'trigger252' as recommendation insert into Results;
+@info('trigger253')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clouds'] select d.contextId, 'trigger253' as recommendation insert into Results;
+@info('trigger254')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every s = Season[contextId == d.contextId and season == 'winter'] select d.contextId, 'trigger254' as recommendation insert into Results;
+@info('trigger255')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'no'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clouds'] select d.contextId, 'trigger255' as recommendation insert into Results;
+@info('trigger256')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every p = Time4Lunch[contextId == d.contextId] select d.contextId, 'trigger256' as recommendation insert into Results;
+@info('trigger257')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clear'] select d.contextId, 'trigger257' as recommendation insert into Results;
+@info('trigger258')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'yes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Thunderstorm'] select d.contextId, 'trigger258' as recommendation insert into Results;
+@info('trigger259')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Rain'] select d.contextId, 'trigger259' as recommendation insert into Results;
+@info('trigger260')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] select d.contextId, 'trigger260' as recommendation insert into Results;
+@info('trigger261')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Drizzle'] select d.contextId, 'trigger261' as recommendation insert into Results;
+@info('trigger262')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every s = Season[contextId == d.contextId and season == 'winter'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clear'] select d.contextId, 'trigger262' as recommendation insert into Results;
+@info('trigger263')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every s = Season[contextId == d.contextId and season == 'autumn'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'no'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Snow'] select d.contextId, 'trigger263' as recommendation insert into Results;
+@info('trigger264')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every s = Season[contextId == d.contextId and season == 'summer'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Snow'] select d.contextId, 'trigger264' as recommendation insert into Results;
+@info('trigger265')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every s = Season[contextId == d.contextId and season == 'summer'] select d.contextId, 'trigger265' as recommendation insert into Results;
+@info('trigger266')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Rain'] select d.contextId, 'trigger266' as recommendation insert into Results;
+@info('trigger267')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every p = Time4Lunch[contextId == d.contextId] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Rain'] select d.contextId, 'trigger267' as recommendation insert into Results;
+@info('trigger268')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'earlyMorning'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'no'] select d.contextId, 'trigger268' as recommendation insert into Results;
+@info('trigger269')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every s = Season[contextId == d.contextId and season == 'spring'] select d.contextId, 'trigger269' as recommendation insert into Results;
+@info('trigger270')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every p = Time4Lunch[contextId == d.contextId] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Atmosphere'] select d.contextId, 'trigger270' as recommendation insert into Results;
+@info('trigger271')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every s = Season[contextId == d.contextId and season == 'autumn'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'yes'] select d.contextId, 'trigger271' as recommendation insert into Results;
+@info('trigger272')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every p = Time4Lunch[contextId == d.contextId] select d.contextId, 'trigger272' as recommendation insert into Results;
+@info('trigger273')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every s = Season[contextId == d.contextId and season == 'autumn'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'earlyMorning'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clear'] select d.contextId, 'trigger273' as recommendation insert into Results;
+@info('trigger274')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'earlyMorning'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Atmosphere'] select d.contextId, 'trigger274' as recommendation insert into Results;
+@info('trigger275')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'no'] select d.contextId, 'trigger275' as recommendation insert into Results;
+@info('trigger276')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every p = Time4Lunch[contextId == d.contextId] select d.contextId, 'trigger276' as recommendation insert into Results;
+@info('trigger277')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Rain'] select d.contextId, 'trigger277' as recommendation insert into Results;
+@info('trigger278')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Snow'] select d.contextId, 'trigger278' as recommendation insert into Results;
+@info('trigger279')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'yes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Rain'] select d.contextId, 'trigger279' as recommendation insert into Results;
+@info('trigger280')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Drizzle'] select d.contextId, 'trigger280' as recommendation insert into Results;
+@info('trigger281')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every s = Season[contextId == d.contextId and season == 'spring'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clouds'] select d.contextId, 'trigger281' as recommendation insert into Results;
+@info('trigger282')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'no'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clouds'] select d.contextId, 'trigger282' as recommendation insert into Results;
+@info('trigger283')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Snow'] select d.contextId, 'trigger283' as recommendation insert into Results;
+@info('trigger284')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Drizzle'] select d.contextId, 'trigger284' as recommendation insert into Results;
+@info('trigger285')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every s = Season[contextId == d.contextId and season == 'summer'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every p = Time4Lunch[contextId == d.contextId] select d.contextId, 'trigger285' as recommendation insert into Results;
+@info('trigger286')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'morning'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'yes'] select d.contextId, 'trigger286' as recommendation insert into Results;
+@info('trigger287')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every s = Season[contextId == d.contextId and season == 'winter'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] select d.contextId, 'trigger287' as recommendation insert into Results;
+@info('trigger288')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every s = Season[contextId == d.contextId and season == 'spring'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'night'] select d.contextId, 'trigger288' as recommendation insert into Results;
+@info('trigger289')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Drizzle'] select d.contextId, 'trigger289' as recommendation insert into Results;
+@info('trigger290')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Snow'] select d.contextId, 'trigger290' as recommendation insert into Results;
+@info('trigger291')from every d = DaysOfWeek[dayOfWeek == 'sábado'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Rain'] select d.contextId, 'trigger291' as recommendation insert into Results;
+@info('trigger292')from every d = DaysOfWeek[dayOfWeek == 'miércoles'] -> every s = Season[contextId == d.contextId and season == 'winter'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Drizzle'] select d.contextId, 'trigger292' as recommendation insert into Results;
+@info('trigger293')from every d = DaysOfWeek[dayOfWeek == 'martes'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every p = Time4Lunch[contextId == d.contextId] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'no'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Atmosphere'] select d.contextId, 'trigger293' as recommendation insert into Results;
+@info('trigger294')from every d = DaysOfWeek[dayOfWeek == 'jueves'] -> every s = Season[contextId == d.contextId and season == 'autumn'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'earlyMorning'] select d.contextId, 'trigger294' as recommendation insert into Results;
+@info('trigger295')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Snow'] select d.contextId, 'trigger295' as recommendation insert into Results;
+@info('trigger296')from every d = DaysOfWeek[dayOfWeek == 'domingo'] -> every p = PartsOfTheDay[contextId == d.contextId and partOfTheDay == 'afternoon'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'no'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Atmosphere'] select d.contextId, 'trigger296' as recommendation insert into Results;
+@info('trigger297')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every s = Season[contextId == d.contextId and season == 'summer'] -> every u = UserContext[hasId == d.contextId and status == 'onHolidays' and atHome == 'no'] select d.contextId, 'trigger297' as recommendation insert into Results;
+@info('trigger298')from every d = DaysOfWeek[dayOfWeek == 'viernes'] -> every w = WeatherStatus[contextId == d.contextId and weatherStatus == 'Clear'] select d.contextId, 'trigger298' as recommendation insert into Results;
+@info('trigger299')from every d = DaysOfWeek[dayOfWeek == 'lunes'] -> every s = Season[contextId == d.contextId and season == 'spring'] -> every u = UserContext[hasId == d.contextId and status == 'notOnHolidays' and atHome == 'yes'] select d.contextId, 'trigger299' as recommendation insert into Results;
+
+@info(name = 'finalResults') from Results#window.timeBatch(2 sec) select contextId, str:groupConcat(recommendation) as recommendation group by contextId insert into FinalResults;

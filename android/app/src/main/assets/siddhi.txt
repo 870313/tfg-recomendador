@@ -1,0 +1,174 @@
+@App:name("test")
+
+@App:description("Description of the plan")
+
+
+
+--@sink(type = 'log', prefix = 'LOGGER_Context')
+define stream Context (json string);
+
+-- @sink(type = 'log', prefix = 'LOGGER_UserContext')
+define stream UserContext(hasId string, date string, time string, status string, atHome string);
+
+-- @sink(type = 'log', prefix = 'LOGGER_Observations')
+define stream Observations(observedBy string, featureOfInterest string, observedProperty string, observationValue string,timeOfMeasurement  string, hasId string, date string, time string, status string, atHome string);
+
+-- @sink(type = 'log', prefix = 'LOGGER_Preferences')
+define stream Preferences(typeOf string, where string, hasId string, date string, time string, status string, atHome string);
+
+
+--@sink(type = 'log', prefix = 'LOGGER_season')
+define stream Season(contextId string, season string);
+
+--@sink(type = 'log', prefix = 'LOGGER_partOfTheDay')
+define stream PartsOfTheDay(contextId string, partOfTheDay string);
+
+--@sink(type = 'log', prefix = 'LOGGER_daysOfWeek')
+define stream DaysOfWeek (contextId string, dayOfWeek string);
+
+--@sink(type = 'log', prefix = 'LOGGER_weatherStatus')
+define stream WeatherStatus (contextId string, weatherStatus string);
+
+
+--@sink(type = 'log', prefix = 'LOGGER_Results')
+define stream Results(contextId string, recommendation string);
+
+@sink(type = 'log', prefix = 'LOGGER_HotDay')
+define stream isHot(contextId string);
+
+@sink(type = 'log', prefix = 'LOGGER_Recommendations')
+define stream Recommendations(contextId string, recommendation string);
+
+@sink(type = 'log', prefix = 'LOGGER_FinalResult')
+define stream FinalResults(contextId string, recommendation string);
+
+
+
+-- Get UserContext data from JSON Context
+@info(name='getUserContext')
+from Context
+select  json:getString(json,'$.UserContext.hasId') as hasId,
+        json:getString(json,'$.UserContext.date') as date,
+        json:getString(json,'$.UserContext.time') as time,
+        json:getString(json,'$.UserContext.status') as status,
+        json:getString(json,'$.UserContext.atHome') as atHome
+insert into UserContext;
+
+-- Get each element from Observations Array in JSON Context
+@info(name='getObservations')
+from Context#json:tokenizeAsObject(json, '$.Observations')
+select  json:getString(jsonElement, '$.observedBy') as observedBy,
+        json:getString(jsonElement, '$.featureOfInterest') as featureOfInterest,
+        json:getString(jsonElement, '$.observedProperty') as observedProperty,
+        json:getString(jsonElement, '$.observationValue') as observationValue,
+        json:getString(jsonElement, '$.timeOfMeasurement') as timeOfMeasurement,
+        json:getString(json,'$.UserContext.hasId') as hasId,
+        json:getString(json,'$.UserContext.date') as date,
+        json:getString(json,'$.UserContext.time') as time,
+        json:getString(json,'$.UserContext.status') as status,
+        json:getString(json,'$.UserContext.atHome') as atHome
+insert into Observations;
+
+-- Get each element from Preferences Array in JSON Context
+@info(name = 'getPreferences')
+from Context#json:tokenizeAsObject(json, '$.Preferences')
+select  json:getString(jsonElement, '$.typeOf') as typeOf,
+        json:getString(jsonElement, '$.where') as where,
+        json:getString(json,'$.UserContext.hasId') as hasId,
+        json:getString(json,'$.UserContext.date') as date,
+        json:getString(json,'$.UserContext.time') as time,
+        json:getString(json,'$.UserContext.status') as status,
+        json:getString(json,'$.UserContext.atHome') as atHome
+insert into Preferences;
+
+-- DAYS OF WEEK
+@info(name = 'getDayOfWeek')
+from UserContext
+select hasId as contextId, time:dayOfWeek(date, 'yyyy/MM/dd') as dayOfWeek
+insert into DaysOfWeek;
+
+@info(name = 'isWeekend')
+from UserContext[(time:dayOfWeek(date, 'yyyy/MM/dd') == 'sábado') or (time:dayOfWeek(date, 'yyyy/MM/dd') == 'domingo')]
+select hasId as contextId
+insert into Weekend;
+
+@info(name = 'notWeekend')
+from UserContext[time:dayOfWeek(date, 'yyyy/MM/dd') != 'sábado' and time:dayOfWeek(date, 'yyyy/MM/dd') != 'domingo']
+select hasId as contextId
+insert into NotWeekend;
+
+
+-- SEASONS
+-- isWinter
+@info(name = 'isWinter')
+from UserContext[(time:extract('MONTH', date, 'yyyy/MM/dd') == 12) or (time:extract('MONTH', date, 'yyyy/MM/dd') == 1) or (time:extract('MONTH', date, 'yyyy/MM/dd') == 2)]
+select hasId as contextId, 'winter' as season
+insert into Season;
+
+-- isSpring
+@info(name = 'isSpring')
+from UserContext[(time:extract('MONTH', date, 'yyyy/MM/dd') == 3) or (time:extract('MONTH', date, 'yyyy/MM/dd') == 4) or (time:extract('MONTH', date, 'yyyy/MM/dd') == 5)]
+select hasId as contextId, 'spring' as season
+insert into Season;
+
+-- isSummer
+@info(name = 'isSummer')
+from UserContext[(time:extract('MONTH', date, 'yyyy/MM/dd') == 6) or (time:extract('MONTH', date, 'yyyy/MM/dd') == 7) or (time:extract('MONTH', date, 'yyyy/MM/dd') == 8)]
+select hasId as contextId, 'summer' as season
+insert into Season;
+
+-- isAutumn
+@info(name = 'isAutumn')
+from UserContext[(time:extract('MONTH', date, 'yyyy/MM/dd') == 9) or (time:extract('MONTH', date, 'yyyy/MM/dd') == 10) or (time:extract('MONTH', date, 'yyyy/MM/dd') == 11)]
+select hasId as contextId, 'autumn' as season
+insert into Season;
+
+
+-- PARTS OF THE DAY
+-- isEarlyMorning
+@info(name='isEarlyMorning')
+from UserContext[((time:timestampInMilliseconds(time, 'HH:mm:ss') - time:timestampInMilliseconds('00:00:00', 'HH:mm:ss')) >= 0) and ((time:timestampInMilliseconds(time, 'HH:mm:ss') - time:timestampInMilliseconds('06:30:00', 'HH:mm:ss')) < 0)]
+select hasId as contextId, 'earlyMorning' as partOfTheDay
+insert into PartsOfTheDay;
+
+@info(name='isMorning')
+from UserContext[((time:timestampInMilliseconds(time, 'HH:mm:ss') - time:timestampInMilliseconds('06:30:00', 'HH:mm:ss')) >= 0) and ((time:timestampInMilliseconds(time, 'HH:mm:ss') - time:timestampInMilliseconds('12:00:00', 'HH:mm:ss')) < 0)]
+select hasId as contextId, 'morning' as partOfTheDay
+insert into PartsOfTheDay;
+
+@info(name='isAfternoon')
+from UserContext[((time:timestampInMilliseconds(time, 'HH:mm:ss') - time:timestampInMilliseconds('12:00:00', 'HH:mm:ss')) >= 0) and ((time:timestampInMilliseconds(time, 'HH:mm:ss') - time:timestampInMilliseconds('19:00:00', 'HH:mm:ss')) < 0)]
+select hasId as contextId, 'afternoon' as partOfTheDay
+insert into PartsOfTheDay;
+
+@info(name='isNight')
+from UserContext[((time:timestampInMilliseconds(time, 'HH:mm:ss') - time:timestampInMilliseconds('19:00:00', 'HH:mm:ss')) >= 0)]
+select hasId as contextId, 'night' as partOfTheDay
+insert into PartsOfTheDay;
+
+@info(name='time4Lunch')
+from UserContext[((time:timestampInMilliseconds(time, 'HH:mm:ss') - time:timestampInMilliseconds('12:30:00', 'HH:mm:ss')) >= 0) and ((time:timestampInMilliseconds(time, 'HH:mm:ss') - time:timestampInMilliseconds('15:30:00', 'HH:mm:ss')) < 0)]
+select hasId as contextId
+insert into Time4Lunch;
+
+@info(name='time4Dinner')
+from UserContext[((time:timestampInMilliseconds(time, 'HH:mm:ss') - time:timestampInMilliseconds('20:30:00', 'HH:mm:ss')) >= 0) and ((time:timestampInMilliseconds(time, 'HH:mm:ss') - time:timestampInMilliseconds('23:00:00', 'HH:mm:ss')) < 0)]
+select hasId as contextId
+insert into Time4Dinner;
+
+
+-- WEATHER STATUS
+@info(name = 'getWeatherStatus')
+from Observations[observedProperty == 'WeatherStatus']
+select hasId as contextId, observationValue as weatherStatus
+insert into WeatherStatus;
+
+@info(name = 'isHotDay')
+from Observations[observedProperty == 'WeatherTemperature' and convert(observationValue, 'int') > 30]
+select hasId as contextId
+insert into isHot;
+
+@info(name = 'isColdDay')
+from Observations[observedProperty == 'WeatherTemperature' and convert(observationValue, 'int') < 5]
+select hasId as contextId
+insert into isCold;

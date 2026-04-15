@@ -1,0 +1,40 @@
+{
+    "activities" : [{
+            "id": "1_1",
+            "authorId": "1",
+            "author": "DemoEM",
+            "title": "AULA 2.04",
+            "type": "ChangeRoom",
+            "description": "51db4b70-3017-11ec-867e-ff99acd2f2e0",
+            "img": "",           
+            "begin": "", 
+            "end": "",
+            "longitude": 0,
+            "latitude": 0
+        }, {
+            "id": "1_2",
+            "authorId": "1",
+            "author": "DemoEM",
+            "title": "AULA 1.03",
+            "type": "ChangeRoom",
+            "description": "4d9f9d90-3017-11ec-867e-ff99acd2f2e0",
+            "img": "",           
+            "begin": "", 
+            "end": "",
+            "longitude": 0,
+            "latitude": 0
+        }, {
+            "id": "1_3",
+            "authorId": "1",
+            "author": "DemoEM",
+            "title": "AULA 2.05",
+            "type": "ChangeRoom",
+            "description": "572a8c30-3017-11ec-867e-ff99acd2f2e0",
+            "img": "",           
+            "begin": "", 
+            "end": "",
+            "longitude": 0,
+            "latitude": 0
+        }
+    ] 
+}

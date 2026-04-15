@@ -1,0 +1,46 @@
+{
+    "CR" : [
+        {
+            "id": 1,
+            "type": "Server-Based",
+            "name": "TooHotToStudy",
+            "server": "sensorizar", 
+            "measurement": "temperature",
+            "comparator": ">",
+            "value": 29
+        },
+        {
+            "id": 2,
+            "type": "Server-Based",
+            "name": "TooHumidityToStudy",
+            "server": "sensorizar", 
+            "measurement": "humidity",
+            "comparator": ">",
+            "value": 40
+        },
+        {
+            "id": 3,
+            "type": "Server-Based",
+            "name": "BusyRoom",
+            "server": "sensorizar", 
+            "measurement": "co2",
+            "comparator": ">",
+            "value": 750
+        },
+        {
+            "id": 4,
+            "type": "Time-Based",
+            "name": "Time4Lunch",
+            "startTime": "13:30",
+            "endTime": "15:00"
+        },
+        {
+            "id": 5,
+            "type": "Location",
+            "name": "AtUniversity",
+            "gpsLatitude": 41.683260908334546,
+            "gpsLongitude": -0.8884599384953313,
+            "locationError": 100
+        }
+    ]
+}
