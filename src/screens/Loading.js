@@ -44,6 +44,10 @@ import {getSettingValue} from '../realmSchemas/SettingsServices';
 //P2P
 import {initializeP2PIfEnabled} from '../p2p/communicationService';
 
+//Zaragoza Open Data (PASEO integration)
+import {realm} from '../realmSchemas/RealmInstance';
+import {syncPOIs} from '../dataSource/ZaragozaDataSource';
+
 const LoadingScreen = ({navigation}) => {
   useEffect(() => {
     const initialize = async () => {
@@ -52,6 +56,11 @@ const LoadingScreen = ({navigation}) => {
 
         const user = Schemas.retrieveUser();
         console.log('User:', user);
+
+        // Initial load of Zaragoza POIs when the local DB is empty.
+        // Kept here (inside Loading.js#initialize) because this screen is
+        // the single entry-point that prepares the app state.
+        await ensureZaragozaPOIsLoaded();
 
         if (user) {
           await prepareSession();
@@ -86,6 +95,27 @@ const LoadingScreen = ({navigation}) => {
       } catch (error) {
         console.error('Loading error:', error);
         navigation.replace('Home');
+      }
+    };
+
+    /**
+     * Downloads Zaragoza POIs the first time the app runs (empty Realm).
+     * Failures are logged but do NOT block the rest of the initialization:
+     * the app must remain usable offline / without the open-data endpoint.
+     */
+    const ensureZaragozaPOIsLoaded = async () => {
+      try {
+        const count = realm.objects('ZaragozaPOI').length;
+        if (count > 0) {
+          console.log(`[Loading] ZaragozaPOI already populated (${count} rows), skipping initial sync.`);
+          return;
+        }
+
+        console.log('[Loading] No POIs found in Realm. Starting initial Zaragoza sync...');
+        const result = await syncPOIs();
+        console.log(`[Loading] Initial Zaragoza sync done: ${result.inserted}/${result.total} POIs stored.`);
+      } catch (err) {
+        console.warn('[Loading] Initial Zaragoza sync failed, continuing without POIs:', err);
       }
     };
 

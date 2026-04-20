@@ -209,3 +209,100 @@ export class Token extends Realm.Object {
     },
   };
 }
+
+// ------------------------- PASEO / ZARAGOZA INTEGRATION -------------------------
+
+/**
+ * Point of Interest obtained from datos.zaragoza.es (or any future source).
+ * Used as base entity for recommendations, favourites, ratings and feedback.
+ */
+export class ZaragozaPOI extends Realm.Object {
+  static schema = {
+    name: 'ZaragozaPOI',
+    primaryKey: 'id',
+    properties: {
+      id: 'int',                // numeric PK (derived from URI if needed)
+      name: 'string',
+      latitude: 'double',
+      longitude: 'double',
+      type: 'string',           // may be a ';'-separated list if several types
+      description: 'string?',   // optional
+      photoUrl: 'string?',      // optional
+      source: { type: 'string', default: 'zaragoza' },
+      lastUpdated: 'date',
+    },
+  };
+}
+
+/**
+ * Numeric rating given by a user to a POI.
+ * Primary key follows the pattern "${userId}_${poiId}" to enforce uniqueness.
+ */
+export class Valoration extends Realm.Object {
+  static schema = {
+    name: 'Valoration',
+    primaryKey: 'id',
+    properties: {
+      id: 'string',             // "${userId}_${poiId}"
+      userId: 'string',
+      poiId: 'int',
+      rating: 'double',
+      timestamp: 'date',
+    },
+  };
+}
+
+/**
+ * Marks a POI as favourite for a given user.
+ * Primary key follows the pattern "${userId}_${poiId}".
+ */
+export class Favourite extends Realm.Object {
+  static schema = {
+    name: 'Favourite',
+    primaryKey: 'id',
+    properties: {
+      id: 'string',             // "${userId}_${poiId}"
+      userId: 'string',
+      poiId: 'int',
+      createdAt: 'date',
+    },
+  };
+}
+
+/**
+ * Implicit/explicit feedback event on a POI (clicks, saves, discards, ratings).
+ * Used to feed the recommendation system.
+ */
+export class Feedback extends Realm.Object {
+  static schema = {
+    name: 'Feedback',
+    primaryKey: 'id',
+    properties: {
+      id: 'string',             // auto-generated (UUID)
+      userId: 'string',
+      poiId: 'int',
+      action: 'string',         // "clicked" | "saved" | "discarded"
+      rating: 'double?',        // optional
+      timestamp: 'date',
+      contextRules: 'string?',  // optional snapshot of active rules
+    },
+  };
+}
+
+/**
+ * Cached recommendation score computed by a specific algorithm.
+ */
+export class RecommendationCache extends Realm.Object {
+  static schema = {
+    name: 'RecommendationCache',
+    primaryKey: 'id',
+    properties: {
+      id: 'string',
+      userId: 'string',
+      poiId: 'int',
+      score: 'double',
+      algorithm: 'string',      // "closeness" | "random" | "keyword" | "key" | "custom"
+      timestamp: 'date',
+    },
+  };
+}
