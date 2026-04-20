@@ -30,7 +30,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { realm } from '../realmSchemas/RealmInstance';
+import {realm} from '../realmSchemas/RealmInstance';
 
 // SPARQL endpoint exposed by the Zaragoza Open Data portal.
 const SPARQL_ENDPOINT = 'https://datos.zaragoza.es/sparql';
@@ -42,7 +42,7 @@ const TURISMO_URI_PREFIX = 'http://www.zaragoza.es/api/recurso/turismo/';
 const WGS84_GEOM_PREFIX = 'http://www.zaragoza.es/api/recurso/geometry/WGS84/';
 
 // Default number of POIs to fetch on a full sync (same value used in PASEO).
-const DEFAULT_POI_LIMIT = 500;
+const DEFAULT_POI_LIMIT = 2000;
 
 // ---------------------------------------------------------------------------
 // SPARQL query construction
@@ -70,7 +70,9 @@ const DEFAULT_POI_LIMIT = 500;
  */
 function buildPOIsQuery(limit, keyword) {
   const keywordFilter = keyword
-    ? `FILTER(CONTAINS(LCASE(STR(?name)), LCASE("${escapeSPARQLLiteral(keyword)}")))`
+    ? `FILTER(CONTAINS(LCASE(STR(?name)), LCASE("${escapeSPARQLLiteral(
+        keyword,
+      )}")))`
     : '';
 
   return `
@@ -121,12 +123,14 @@ function escapeSPARQLLiteral(value) {
 export async function executeSPARQL(query) {
   const url =
     SPARQL_ENDPOINT +
-    '?query=' + encodeURIComponent(query) +
-    '&format=' + encodeURIComponent('application/sparql-results+json');
+    '?query=' +
+    encodeURIComponent(query) +
+    '&format=' +
+    encodeURIComponent('application/sparql-results+json');
 
   const response = await fetch(url, {
     method: 'GET',
-    headers: { Accept: 'application/sparql-results+json' },
+    headers: {Accept: 'application/sparql-results+json'},
   });
 
   if (!response.ok) {
@@ -151,10 +155,14 @@ export async function executeSPARQL(query) {
  */
 function parseCoordsFromGeom(geomUri) {
   const m = /WGS84\/(-?\d+(?:\.\d+)?)_(-?\d+(?:\.\d+)?)/.exec(geomUri);
-  if (!m) {return null;}
+  if (!m) {
+    return null;
+  }
   const lat = parseFloat(m[1]);
   const lon = parseFloat(m[2]);
-  if (Number.isNaN(lat) || Number.isNaN(lon)) {return null;}
+  if (Number.isNaN(lat) || Number.isNaN(lon)) {
+    return null;
+  }
   return [lat, lon];
 }
 
@@ -201,10 +209,14 @@ function mergeBindingsByURI(bindings) {
     const uri = binding.uri?.value;
     const name = binding.name?.value;
     const geom = binding.geom?.value;
-    if (!uri || !name || !geom) {continue;}
+    if (!uri || !name || !geom) {
+      continue;
+    }
 
     const coords = parseCoordsFromGeom(geom);
-    if (!coords) {continue;}
+    if (!coords) {
+      continue;
+    }
 
     const type = binding.type?.value ?? '';
     const description = binding.description?.value ?? null;
@@ -228,12 +240,18 @@ function mergeBindingsByURI(bindings) {
 
     // Merge type into a ';'-separated unique list.
     const types = new Set(existing.type ? existing.type.split(';') : []);
-    if (type) {types.add(type);}
+    if (type) {
+      types.add(type);
+    }
     existing.type = Array.from(types).join(';');
 
     // Keep the first non-empty description / photo.
-    if (!existing.description && description) {existing.description = description;}
-    if (!existing.photoUrl && photoUrl) {existing.photoUrl = photoUrl;}
+    if (!existing.description && description) {
+      existing.description = description;
+    }
+    if (!existing.photoUrl && photoUrl) {
+      existing.photoUrl = photoUrl;
+    }
   }
 
   return Array.from(byUri.values());
@@ -257,7 +275,9 @@ export async function getAllPOIs(limit = DEFAULT_POI_LIMIT) {
   const bindings = json?.results?.bindings ?? [];
 
   const pois = mergeBindingsByURI(bindings);
-  console.log(`[ZaragozaDataSource] getAllPOIs -> ${pois.length} POIs (from ${bindings.length} rows)`);
+  console.log(
+    `[ZaragozaDataSource] getAllPOIs -> ${pois.length} POIs (from ${bindings.length} rows)`,
+  );
   return pois;
 }
 
@@ -319,5 +339,5 @@ export async function syncPOIs(limit = DEFAULT_POI_LIMIT) {
   console.log(
     `[ZaragozaDataSource] syncPOIs(): stored ${written}/${pois.length} POIs`,
   );
-  return { inserted: written, total: pois.length };
+  return {inserted: written, total: pois.length};
 }
