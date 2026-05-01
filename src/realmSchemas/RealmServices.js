@@ -1,9 +1,9 @@
-import { realm } from './RealmInstance';
+import {realm} from './RealmInstance';
 
 // Retrieves the current user from the database
 export function retrieveUser() {
-    const users = realm.objects('User');
-    return users.length > 0 ? users[0] : null;
+  const users = realm.objects('User');
+  return users.length > 0 ? users[0] : null;
 }
 
 /**
@@ -51,7 +51,7 @@ export function replaceUser(user) {
         birth: user.birth,
         provider: user.provider,
       },
-      true // 'true' indicates update if the primary key already exists
+      true, // 'true' indicates update if the primary key already exists
     );
   });
 
@@ -79,9 +79,9 @@ export function retrieveOrder(userId) {
  */
 export function modifyOrder(userId, key) {
   realm.write(() => {
-    const existingOrder = realm.objects('Setting').filtered(
-      `userId = "${userId}" AND type = "ORDER"`
-    );
+    const existingOrder = realm
+      .objects('Setting')
+      .filtered(`userId = "${userId}" AND type = "ORDER"`);
 
     if (existingOrder.length > 0) {
       existingOrder[0].key = key;
@@ -101,7 +101,8 @@ export function filterActivities(userId) {
   let activities = realm.objects('Activity');
 
   // Get settings specific to the user and "SETTINGS" type
-  const settings = realm.objects('Setting')
+  const settings = realm
+    .objects('Setting')
     .filtered(`userId = "${userId}" AND type = "SETTINGS"`);
 
   // Exclude activity types that are disabled in the settings
@@ -122,8 +123,8 @@ export function filterActivities(userId) {
       break;
     case 'stars':
       activities = activities.sorted([
-        ['rating', true],     // Sort by rating descending
-        ['title', false],      // Then by title ascending
+        ['rating', true], // Sort by rating descending
+        ['title', false], // Then by title ascending
       ]);
       break;
     case 'time':
@@ -146,7 +147,8 @@ export function filterActivities(userId) {
  * Checks if an activity with the given ID already exists.
  */
 export function existsActivity(activity) {
-  const activities = realm.objects('Activity')
+  const activities = realm
+    .objects('Activity')
     .filtered(`id = "${activity.id}"`);
 
   return activities.length > 0;
@@ -156,14 +158,24 @@ export function existsActivity(activity) {
  * Marks activity with a specific action and optional value
  */
 export function markActivityAs(activity, action, value) {
-  if (!existsActivity(activity)) {return null;}
+  if (!existsActivity(activity)) {
+    return null;
+  }
 
   realm.write(() => {
     const actions = {
-      CLICKED: () => { activity.clicked = true; },
-      SAVED: () => { activity.state = value ? 'saved' : 'default'; },
-      DISCARDED: () => { activity.discarded = true; },
-      RATED: () => { activity.rating = value; },
+      CLICKED: () => {
+        activity.clicked = true;
+      },
+      SAVED: () => {
+        activity.state = value ? 'saved' : 'default';
+      },
+      DISCARDED: () => {
+        activity.discarded = true;
+      },
+      RATED: () => {
+        activity.rating = value;
+      },
     };
 
     if (actions[action]) {
@@ -177,7 +189,9 @@ export function markActivityAs(activity, action, value) {
  */
 export function deleteActivityById(id) {
   const activity = realm.objectForPrimaryKey('Activity', id);
-  if (!activity) {return;}
+  if (!activity) {
+    return;
+  }
 
   realm.write(() => {
     realm.delete(activity);
@@ -189,7 +203,7 @@ export function deleteActivityById(id) {
  */
 export function getAllActivities() {
   // Consulta Realm para obtener actividades con rating >= 3
-  const activities = realm.objects("Activity").filtered("rating >= 3");
+  const activities = realm.objects('Activity').filtered('rating >= 3');
 
   // Mapear a JSON "plano" (Realm devuelve objetos proxys que no son serializables directamente)
   return activities.map(activity => ({
@@ -214,9 +228,10 @@ export const currentAuthToken = () => retrieveUser()?.authToken ?? null;
 /**
  * Retrieves the latest context object by key from the database
  */
-export const retrieveContext = (key) => {
+export const retrieveContext = key => {
   // Query the 'JSON' collection, filtering by key and sorting by id descending
-  const objects = realm.objects('JSON')
+  const objects = realm
+    .objects('JSON')
     .filtered('key = "' + key + '"')
     .sorted('id', true);
 
@@ -234,9 +249,17 @@ export const retrieveContext = (key) => {
  */
 export const retrieveValueSetting = (userId, type, key) => {
   // Query the 'Setting' collection, filtering by userId, type, and key
-  const setting = realm.objects('Setting').filtered(
-    'userId = "' + userId + '" AND type = "' + type + '" AND key = "' + key + '"'
-  );
+  const setting = realm
+    .objects('Setting')
+    .filtered(
+      'userId = "' +
+        userId +
+        '" AND type = "' +
+        type +
+        '" AND key = "' +
+        key +
+        '"',
+    );
 
   // Return the setting value if found, otherwise default to true
   return setting.length > 0 ? setting[0].value : true;
@@ -251,9 +274,9 @@ export const retrieveValueSetting = (userId, type, key) => {
  * @returns {any|null} The value of the parameter if it exists, or null if not found.
  */
 export function retrieveValueParameter(userId, type, key) {
-  const setting = realm.objects('Parameter').filtered(
-    `userId="${userId}" AND type="${type}" AND key="${key}"`
-  );
+  const setting = realm
+    .objects('Parameter')
+    .filtered(`userId="${userId}" AND type="${type}" AND key="${key}"`);
 
   return setting?.[0]?.value ?? null;
 }
@@ -276,7 +299,7 @@ export function storeParameter(userId, type, key, value) {
     } else {
       realm.create('Parameter', {
         userId,
-        type,   // e.g., "SETTINGS" or "PROFILE"
+        type, // e.g., "SETTINGS" or "PROFILE"
         key,
         value,
       });
@@ -293,9 +316,9 @@ export function storeParameter(userId, type, key, value) {
  * @returns {Realm.Object|null} The matching Parameter object if found, or null if not found.
  */
 export function retrieveParameter(userId, type, key) {
-  const result = realm.objects('Parameter').filtered(
-    `userId = "${userId}" AND type = "${type}" AND key = "${key}"`
-  );
+  const result = realm
+    .objects('Parameter')
+    .filtered(`userId = "${userId}" AND type = "${type}" AND key = "${key}"`);
 
   return result.length > 0 ? result[0] : null;
 }
@@ -312,7 +335,10 @@ export const CreateContext = (key, json) => {
     console.log('CreateContext(): updating context');
 
     // Find the most recent object with the given key
-    const results = realm.objects('JSON').filtered('key == $0', key).sorted('id', true);
+    const results = realm
+      .objects('JSON')
+      .filtered('key == $0', key)
+      .sorted('id', true);
     const lastId = results.length > 0 ? results[0].id : 0;
 
     const newId = lastId + 1;
@@ -320,11 +346,15 @@ export const CreateContext = (key, json) => {
 
     // Write the new or updated object to Realm
     realm.write(() => {
-      realm.create('JSON', {
-        id: newId,
-        key: key,
-        json: json,
-      }, true); // `true` = update if exists
+      realm.create(
+        'JSON',
+        {
+          id: newId,
+          key: key,
+          json: json,
+        },
+        true,
+      ); // `true` = update if exists
     });
 
     console.log('CreateContext(): saved successfully');
@@ -358,13 +388,13 @@ export function retrieveCurrentLocation() {
 export function storeLocation(userId, position) {
   const time = Date.now(); // Gets the current timestamp in milliseconds
   realm.write(() => {
-      // Creates a new Position record in the realm database
-      realm.create('Position', {
-          userId,
-          lat: position.coords.latitude,
-          lon: position.coords.longitude,
-          timestamp: time,
-      });
+    // Creates a new Position record in the realm database
+    realm.create('Position', {
+      userId,
+      lat: position.coords.latitude,
+      lon: position.coords.longitude,
+      timestamp: time,
+    });
   });
 }
 
@@ -458,7 +488,9 @@ export function deleteContextRuleById(id) {
  */
 export function existsByNameContextRule(name) {
   // Query Realm for any ContextRule objects with the specified name
-  const existingRules = realm.objects('ContextRule').filtered('name == $0', name);
+  const existingRules = realm
+    .objects('ContextRule')
+    .filtered('name == $0', name);
 
   // If no matching rules are found, return false; otherwise, return true
   return existingRules.length > 0;
@@ -474,7 +506,9 @@ export function existsByNameContextRule(name) {
  */
 export function existsByNameContextRuleAndId(id, name) {
   // Query all context rules that match the given name but have a different ID
-  const existingRules = realm.objects('ContextRule').filtered('name == $0 AND id != $1', name, id);
+  const existingRules = realm
+    .objects('ContextRule')
+    .filtered('name == $0 AND id != $1', name, id);
 
   // Return true if one or more matches are found, false otherwise
   return existingRules.length > 0;
@@ -491,7 +525,12 @@ export function existsByNameContextRuleAndId(id, name) {
  * @param {number} gpsLongitude - The longitude coordinate for the location rule.
  * @param {number} meters - The allowed location error (in meters).
  */
-export function storeLocationContextRule(name, gpsLatitude, gpsLongitude, meters) {
+export function storeLocationContextRule(
+  name,
+  gpsLatitude,
+  gpsLongitude,
+  meters,
+) {
   // Get the most recent ContextRule sorted by ID in descending order
   const lastContextRule = realm.objects('ContextRule').sorted('id', true)[0];
 
@@ -528,17 +567,27 @@ export function storeLocationContextRule(name, gpsLatitude, gpsLongitude, meters
  * @param {number} gpsLongitude - Longitude value for the rule's location.
  * @param {number} locationError - Acceptable location error in meters.
  */
-export function updateLocationContextRule(id, name, gpsLatitude, gpsLongitude, locationError) {
+export function updateLocationContextRule(
+  id,
+  name,
+  gpsLatitude,
+  gpsLongitude,
+  locationError,
+) {
   // Open a Realm write transaction
   realm.write(() => {
     // Create or update the context rule with the provided values
-    realm.create('ContextRule', {
-      id: id,
-      name: name,
-      gpsLatitude: gpsLatitude,
-      gpsLongitude: gpsLongitude,
-      locationError: locationError,
-    }, true); // `true` enables upsert (update if exists, create if not)
+    realm.create(
+      'ContextRule',
+      {
+        id: id,
+        name: name,
+        gpsLatitude: gpsLatitude,
+        gpsLongitude: gpsLongitude,
+        locationError: locationError,
+      },
+      true,
+    ); // `true` enables upsert (update if exists, create if not)
   });
 }
 
@@ -566,7 +615,7 @@ export function storeTimeBasedContextRule(name, startTime, endTime) {
   realm.write(() => {
     realm.create('ContextRule', {
       id: newId,
-      type: 'Time-Based',   // Fixed type for time-based rules.
+      type: 'Time-Based', // Fixed type for time-based rules.
       name: name,
       startTime: startTime,
       endTime: endTime,
@@ -604,7 +653,7 @@ export const updateTimeBasedContextRule = (id, name, startTime, endTime) => {
         startTime,
         endTime,
       },
-      true // 'true' means to update the object if it already exists
+      true, // 'true' means to update the object if it already exists
     );
   });
 };
@@ -617,7 +666,12 @@ export const updateTimeBasedContextRule = (id, name, startTime, endTime) => {
  * @param {string} startDate - The optional start date for the rule (format: dd/mm/yyyy or empty).
  * @param {string} endDate - The optional end date for the rule (format: dd/mm/yyyy or empty).
  */
-export function storeCalendarBasedContextRule(name, daysOfWeek, startDate, endDate) {
+export function storeCalendarBasedContextRule(
+  name,
+  daysOfWeek,
+  startDate,
+  endDate,
+) {
   try {
     console.log('DAYS OF WEEK:', daysOfWeek);
 
@@ -662,7 +716,13 @@ export function storeCalendarBasedContextRule(name, daysOfWeek, startDate, endDa
  * @param {string} startDate - Start date in the format 'dd/mm/yyyy' or '__/__/__'.
  * @param {string} endDate - End date in the format 'dd/mm/yyyy' or '__/__/__'.
  */
-export function updateCalendarBasedContextRule(id, name, daysOfWeek, startDate, endDate) {
+export function updateCalendarBasedContextRule(
+  id,
+  name,
+  daysOfWeek,
+  startDate,
+  endDate,
+) {
   try {
     realm.write(() => {
       realm.create(
@@ -674,7 +734,7 @@ export function updateCalendarBasedContextRule(id, name, daysOfWeek, startDate, 
           startDate,
           endDate,
         },
-        true // 'true' means to update the object if it already exists
+        true, // 'true' means to update the object if it already exists
       );
     });
   } catch (error) {
@@ -729,17 +789,27 @@ export function storeWeatherContextRule(name, weatherStatus, minTemp, maxTemp) {
  * @param {number} minTemp - Minimum temperature threshold for the rule.
  * @param {number} maxTemp - Maximum temperature threshold for the rule.
  */
-export function updateWeatherContextRule(id, name, weatherStatus, minTemp, maxTemp) {
+export function updateWeatherContextRule(
+  id,
+  name,
+  weatherStatus,
+  minTemp,
+  maxTemp,
+) {
   // Begin a write transaction in the Realm database
   realm.write(() => {
-      // Create or update a ContextRule object with the provided values
-      realm.create('ContextRule', {
-          id: id,
-          name: name,
-          weatherStatus: weatherStatus,
-          minTemp: minTemp,
-          maxTemp: maxTemp,
-      }, true); // `true` indicates that this is an upsert operation
+    // Create or update a ContextRule object with the provided values
+    realm.create(
+      'ContextRule',
+      {
+        id: id,
+        name: name,
+        weatherStatus: weatherStatus,
+        minTemp: minTemp,
+        maxTemp: maxTemp,
+      },
+      true,
+    ); // `true` indicates that this is an upsert operation
   });
 }
 
@@ -752,7 +822,13 @@ export function updateWeatherContextRule(id, name, weatherStatus, minTemp, maxTe
  * @param {string} comparator - The comparator to apply (e.g., ">", "<", "=").
  * @param {number} value - The numeric value to compare against.
  */
-export function storeServerBasedContextRule(name, server, measurement, comparator, value) {
+export function storeServerBasedContextRule(
+  name,
+  server,
+  measurement,
+  comparator,
+  value,
+) {
   console.log('storeServerBasedContextRule');
 
   // Retrieve the latest ContextRule by descending ID
@@ -764,15 +840,15 @@ export function storeServerBasedContextRule(name, server, measurement, comparato
 
   // Write the new context rule to the Realm database
   realm.write(() => {
-      realm.create('ContextRule', {
-          id: newId,
-          type: 'Server-Based',
-          name: name,
-          server: server,
-          measurement: measurement,
-          comparator: comparator,
-          value: value,
-      });
+    realm.create('ContextRule', {
+      id: newId,
+      type: 'Server-Based',
+      name: name,
+      server: server,
+      measurement: measurement,
+      comparator: comparator,
+      value: value,
+    });
   });
 }
 
@@ -786,7 +862,14 @@ export function storeServerBasedContextRule(name, server, measurement, comparato
  * @param {string} comparator - The comparator to be used (e.g., '>', '<=', '==').
  * @param {number} value - The value to compare the measurement against.
  */
-export function updateServerBasedContextRule(id, name, server, measurement, comparator, value) {
+export function updateServerBasedContextRule(
+  id,
+  name,
+  server,
+  measurement,
+  comparator,
+  value,
+) {
   // Use a Realm write transaction to create or update the context rule
   realm.write(() => {
     realm.create(
@@ -799,7 +882,7 @@ export function updateServerBasedContextRule(id, name, server, measurement, comp
         comparator,
         value,
       },
-      true// `true` indicates that this is an upsert operation
+      true, // `true` indicates that this is an upsert operation
     );
   });
 }
@@ -863,7 +946,9 @@ export function retrieveLastContext(key) {
  * @returns {Realm.Results<Object>|null} A list of 'Location' context rules, or null if none are found.
  */
 export function retrieveLocationCR() {
-  const locationCR = realm.objects('ContextRule').filtered("type == 'Location'");
+  const locationCR = realm
+    .objects('ContextRule')
+    .filtered("type == 'Location'");
   return locationCR.length > 0 ? locationCR : null;
 }
 
@@ -898,25 +983,34 @@ export const retrieveTriggeringRulesSwitchOn = () => {
 };
 
 /**
- * Retrieve the activity with 
- * the same activity.authorId & 
+ * Retrieve the activity with
+ * the same activity.authorId &
  * user provided
  */
 function retrieveActivityAuthor(activity) {
   let token = currentToken();
   // If token or activity is null it cannot exit
   if (token == null || activity == null) {
-      return null;
+    return null;
   }
-  let activities = realm.objects('Activity')
-      .filtered('authorId = "' + activity.authorId + '" AND '
-          + ' author = "' + activity.author + '" AND '
-          + 'user = "' + token + '"');
+  let activities = realm
+    .objects('Activity')
+    .filtered(
+      'authorId = "' +
+        activity.authorId +
+        '" AND ' +
+        ' author = "' +
+        activity.author +
+        '" AND ' +
+        'user = "' +
+        token +
+        '"',
+    );
   // console.log(activities[0]);
   if (activities.length > 0) {
-      return activities[0];
+    return activities[0];
   } else {
-      return null;
+    return null;
   }
 }
 
@@ -925,11 +1019,11 @@ function retrieveActivityAuthor(activity) {
  * Devuelve `true` si se ha creado/actualizado, `false` si no era relevante.
  */
 export function storeActivity(activity) {
-  console.log("storeActivity");
+  console.log('storeActivity');
 
   const user = retrieveUser();
   if (!user?.token) {
-    console.warn("No user token found, skipping activity store.");
+    console.warn('No user token found, skipping activity store.');
     return false;
   }
 
@@ -945,7 +1039,7 @@ export function storeActivity(activity) {
   const baseData = {
     id: activity.id,
     authorId: activity.authorId,
-    author: activity.author ?? "",
+    author: activity.author ?? '',
     title: activity.title,
     type: activity.type,
     description: activity.description,
@@ -966,7 +1060,7 @@ export function storeActivity(activity) {
 
   // Escritura en Realm
   realm.write(() => {
-    realm.create("Activity", baseData, "modified"); 
+    realm.create('Activity', baseData, 'modified');
     // "modified" asegura update si ya existe la PK
   });
 
@@ -982,7 +1076,7 @@ export function storeActivity(activity) {
  * @returns {boolean} - true si hubo cambio relevante, false en caso contrario
  */
 export function updateActivity(old, activity) {
-  console.log("UPDATE ACTIVITY");
+  console.log('UPDATE ACTIVITY');
 
   const date = new Date();
 
@@ -1023,4 +1117,73 @@ export function updateActivityRating(activity, newRating) {
   realm.write(() => {
     activity.rating = Math.round(newRating);
   });
+}
+
+// ===========================================================================
+// Recommendation system helpers
+// ===========================================================================
+
+/**
+ * Returns every ZaragozaPOI as a plain JS array, detached from Realm.
+ *
+ * Recommendation algorithms run as pure functions and must NOT receive Realm
+ * proxies (they could be GC'd, re-emitted on a different thread, or invalidated
+ * by a write transaction). We materialize coordinates and identifiers eagerly.
+ *
+ * @returns {Array<Object>} Plain POI objects ready to feed an algorithm.
+ */
+export function getAllZaragozaPOIs() {
+  return realm.objects('ZaragozaPOI').map(p => ({
+    id: p.id,
+    name: p.name,
+    latitude: p.latitude,
+    longitude: p.longitude,
+    type: p.type,
+    description: p.description ?? null,
+    photoUrl: p.photoUrl ?? null,
+    source: p.source,
+    lastUpdated: p.lastUpdated,
+  }));
+}
+
+/**
+ * Removes every cached recommendation row for a given (user, algorithm) pair.
+ * Used by the engine before persisting a fresh recommendation batch so callers
+ * never see a mix of old and new entries.
+ *
+ * @param {string} userId
+ * @param {string} algorithmId
+ */
+export function clearRecommendationCache(userId, algorithmId) {
+  realm.write(() => {
+    const stale = realm
+      .objects('RecommendationCache')
+      .filtered('userId == $0 AND algorithm == $1', userId, algorithmId);
+    if (stale.length > 0) {
+      realm.delete(stale);
+    }
+  });
+}
+
+/**
+ * Reads a cached recommendation batch back from Realm, sorted DESC by score.
+ * Returned as plain objects so the caller can pass them around freely.
+ *
+ * @param {string} userId
+ * @param {string} algorithmId
+ * @returns {Array<{id: string, userId: string, poiId: number, score: number, algorithm: string, timestamp: Date}>}
+ */
+export function getCachedRecommendations(userId, algorithmId) {
+  return realm
+    .objects('RecommendationCache')
+    .filtered('userId == $0 AND algorithm == $1', userId, algorithmId)
+    .sorted('score', true)
+    .map(r => ({
+      id: r.id,
+      userId: r.userId,
+      poiId: r.poiId,
+      score: r.score,
+      algorithm: r.algorithm,
+      timestamp: r.timestamp,
+    }));
 }
