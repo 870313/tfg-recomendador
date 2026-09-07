@@ -84,9 +84,11 @@ export default function WeatherContextRule({ navigation }) {
       >
         <InputField
         placeholder="Insert name"
+        placeholderTextColor="#9CA3AF"
         maxLength={30}
         value={name}
         onChangeText={setName}
+        color="#111827"
         />
       </Input>
 

@@ -1,10 +1,10 @@
 import React from 'react';
 import { StyleSheet, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { Plus } from 'lucide-react-native';
 
 // Gluestack UI
 import { Box } from '@/components/ui/box';
-import { Text } from '@/components/ui/text';
 //UI
 import TabListCRules from '../../components/TabListCRules';
 import NavFooter from '../../components/NavFooter';
@@ -24,8 +24,11 @@ const ContextRulesScreen = () => {
   return (
         <Box style={styles.container}>
         <TabListCRules navigation={navigation} />
-        <TouchableOpacity onPress={handleAddRule} style={styles.fab}>
-          <Text style={styles.fabIcon}>+</Text>
+        <TouchableOpacity
+          onPress={handleAddRule}
+          style={styles.fab}
+          accessibilityLabel="Add context rule">
+          <Plus color="white" size={36} strokeWidth={3} />
         </TouchableOpacity>
         <NavFooter navigation={navigation} tab="ContextRules" />
         </Box>
@@ -48,10 +51,6 @@ const styles = StyleSheet.create({
       position: 'absolute',
       right: 20,
       width: 70,
-    },
-    fabIcon: {
-      color: 'white',
-      fontSize: 40,
     },
   });
 

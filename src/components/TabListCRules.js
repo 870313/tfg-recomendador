@@ -101,12 +101,15 @@ const TabListCRules = () => {
   };
 
   const renderItem = ({ item }) => (
-    <View style={styles.rowFront}>
-      <Text onPress={() => onPressContextRule(item)}>
+    <TouchableOpacity
+      onPress={() => onPressContextRule(item)}
+      style={styles.rowFront}
+      accessibilityLabel={`Edit context rule ${item.name}`}>
+      <Text>
         <Text style={styles.bold}>{item.name}</Text>
         <Text> #{item.type}</Text>
       </Text>
-    </View>
+    </TouchableOpacity>
   );
 
   const renderHiddenItem = ({ item, index }) => (

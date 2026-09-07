@@ -61,14 +61,47 @@ export const SendContextTask = async () => {
     !tokenObject || Math.abs(now - tokenObject.timestamp) / (60 * 1000) > 150;
 
   if (tokenIsExpired) {
-    sensorizarToken = await loginSensorizarServer();
+    // The Sensorizar login is only required when the user has defined a
+    // Server-Based context rule that actually consults that server. Since
+    // this background task runs periodically regardless of which rules are
+    // active, we swallow login errors here so the task can continue with
+    // sensorizarToken = null instead of surfacing an intrusive network
+    // error to the user (which was appearing even when no rule needed it).
+    try {
+      sensorizarToken = await loginSensorizarServer();
+    } catch (err) {
+      console.warn(
+        '[task] Sensorizar login failed; continuing without token. ' +
+          'Server-Based rules that depend on Sensorizar will not fire until ' +
+          'connectivity is restored:',
+        err?.message ?? err,
+      );
+      sensorizarToken = null;
+    }
   } else {
     sensorizarToken = tokenObject.token;
   }
 
   console.log('[NEW] Token value:', sensorizarToken);
 
-  // NOTE: For testing only – generating fake user context
+  // Inject the real device date/time into the (otherwise synthetic) test
+  // context so that Time-Based and Calendar-Based rules the user creates
+  // are evaluated against the current instant instead of against the
+  // frozen timestamp stored in Contextv2.json. Without this, a rule
+  // "12:30-15:00" would never match because the synthetic context is
+  // hardcoded to 10:00 on 26/07/2022 (heredado del prototipo original de
+  // R-Rules). Reuses the `now` Date already computed above for the
+  // Sensorizar token freshness check.
+  const pad = n => String(n).padStart(2, '0');
+  context.UserContext = {
+    ...(context.UserContext ?? {}),
+    date: `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`,
+    time: `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`,
+  };
+
+  // NOTE: The other Observations (Location, Weather, Sensorizar) remain
+  // synthetic; wiring the real sensors is out of scope for the current
+  // TFG and documented as future work in Chapter 6.
   context = buildSiddhiContextForTest(context.UserContext);
 
   if (!context) {

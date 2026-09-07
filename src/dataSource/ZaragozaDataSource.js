@@ -134,8 +134,16 @@ export async function executeSPARQL(query) {
   });
 
   if (!response.ok) {
+    // The Zaragoza SPARQL endpoint (Virtuoso) returns 5xx occasionally under
+    // load; treat those as transient upstream issues, not as a bug in the
+    // application. Callers (e.g. syncPOIs) log the message and fall back to
+    // any POIs previously cached in Realm.
+    const isServerError = response.status >= 500 && response.status < 600;
+    const label = isServerError
+      ? 'servicio SPARQL no disponible temporalmente'
+      : 'la consulta SPARQL ha fallado';
     throw new Error(
-      `[ZaragozaDataSource] SPARQL request failed: ${response.status} ${response.statusText}`,
+      `[ZaragozaDataSource] ${label} (HTTP ${response.status} ${response.statusText}).`,
     );
   }
 

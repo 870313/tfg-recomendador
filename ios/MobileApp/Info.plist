@@ -33,7 +33,11 @@
 		<true/>
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string></string>
+	<string>La aplicación utiliza tu ubicación para ordenar los puntos de interés por proximidad y para evaluar las reglas de contexto basadas en localización.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>La aplicación consulta tu calendario para evaluar las reglas de contexto basadas en eventos programados.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Solo se utiliza en modo desarrollo para conectar con el servidor de recarga de código (Metro) de React Native. En la versión de producción no se accede a la red local.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>

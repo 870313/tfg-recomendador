@@ -219,7 +219,7 @@ const TabListCRforTR = ({ createScreen }) => {
       if (/\s/.test(name)) {return "Name field can't contain spaces.";}
       if (!/[a-zA-Z]/.test(name)) {return 'Name must contain at least one letter.';}
       if (!/^[a-zA-Z]/.test(name)) {return 'First character must be a letter.';}
-      if (contextRules.length < 2) {return 'You must select at least 2 context rules';}
+      if (contextRules.length < 1) {return 'You must select at least 1 context rule';}
 
       const selections = contextRules.map((item) => item.selection);
       const uniqueSelections = new Set(selections);

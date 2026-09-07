@@ -58,20 +58,26 @@ const LoadingScreen = ({navigation}) => {
   useEffect(() => {
     const initialize = async () => {
       try {
-        //Notifications.configureNotifications();
+        // 1. Request app permissions FIRST, always. Doing this before the
+        //    if (user) / else branch guarantees that iOS shows the three
+        //    permission dialogs the first time the app runs on any device,
+        //    regardless of whether a Realm-persisted user already exists.
+        //    This matches what the user manual (Anexo D) describes.
+        await requestAppPermissions();
+
         const user = Schemas.retrieveUser();
         console.log('User:', user);
 
-        // Initial load of Zaragoza POIs when the local DB is empty.
-        // Kept here (inside Loading.js#initialize) because this screen is
-        // the single entry-point that prepares the app state.
+        // 2. Initial load of Zaragoza POIs when the local DB is empty.
+        //    Kept here (inside Loading.js#initialize) because this screen is
+        //    the single entry-point that prepares the app state.
         await ensureZaragozaPOIsLoaded();
 
-        if (user) {
-          await prepareSession();
-          navigation.replace('Home');
-        } else {
-          // Fake user - no EM needed
+        // 3. Ensure a user exists (create a local test user the first time),
+        //    then prepare the session and navigate to Home. The two branches
+        //    share the same tail (prepareSession + navigate) so that adding
+        //    steps in the future doesn't require duplicating them.
+        if (!user) {
           const newUser = {
             email: 'test@test.com',
             token: '999',
@@ -81,22 +87,16 @@ const LoadingScreen = ({navigation}) => {
             genre: 'other',
             birth: '2000-01-01',
           };
-
           Schemas.replaceUser(newUser);
-
           Alert.alert('INFO', `You are logged in as ${newUser.email} (test)`);
 
-          // Load rules and exclusions
-          const rules = getContextRulesExamples();
-          const exclusions = getExclusionSetsExamples();
-
-          Schemas.storeContextRulesFromJson(rules);
-          Schemas.storeExclusionSetsFromJson(exclusions);
-
-          await fakePermissionLogin();
-
-          navigation.replace('Home');
+          // Seed example rules/exclusions only on the very first launch.
+          Schemas.storeContextRulesFromJson(getContextRulesExamples());
+          Schemas.storeExclusionSetsFromJson(getExclusionSetsExamples());
         }
+
+        await prepareSession();
+        navigation.replace('Home');
       } catch (error) {
         console.error('Loading error:', error);
         navigation.replace('Home');
@@ -138,6 +138,26 @@ const LoadingScreen = ({navigation}) => {
       await myPosition.getLocationAsync();
       await myCalendar.getCalendarAsync();
 
+      // Force the JavaScript rule engine on Android as well. The native
+      // Siddhi engine (used by default on Android before this line) has a
+      // known limitation with the sequential `A -> B` SiddhiQL pattern
+      // generated for triggering rules that combine several context rules:
+      // when all context rules match in the same tick, Siddhi does not fire
+      // consistently, so the user-defined triggering rules would not
+      // dispatch a recommendation. The JavaScript engine implements the
+      // same semantics as a pure logical AND and fires reliably in that
+      // case. Only touched the first time; subsequent boots read the
+      // persisted flag from Realm as-is.
+      try {
+        const currentEngine = getSettingValue('*', 'RULE_ENGINE');
+        if (currentEngine !== 'js') {
+          Schemas.storeParameter('*', 'SETTINGS', 'RULE_ENGINE', 'js');
+          _resetEngineCache();
+        }
+      } catch (e) {
+        console.warn('[Loading] Could not force JS rule engine:', e?.message ?? e);
+      }
+
       getEngine().connect();
       bootstrapRuleEngine();
       // Wire rule-engine triggers to the Sprint-2 recommendation algorithms.
@@ -157,30 +177,52 @@ const LoadingScreen = ({navigation}) => {
       await initializeP2PIfEnabled(currentToken);
     };
 
-    const fakePermissionLogin = async () => {
-      //Calendar permissions
-      const calendar = await RNCalendarEvents.requestPermissions();
-
-      //Location permissions
-      const location =
-        Platform.OS === 'ios'
-          ? await request(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE)
-          : await request(PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION);
-
-      //Notifications permissions
-      const notificationPermission =
-        await Notifications.configureNotifications();
-      if (
+    /**
+     * Requests the three permissions the app needs (calendar, location,
+     * notifications). Wrapped in try/catch so that a single failed dialog
+     * does not abort the whole boot sequence. The result is a boolean but
+     * it is currently only consumed for logging: the app continues to boot
+     * even with partial permissions, degrading gracefully (e.g. closeness
+     * recommendations simply return empty when location is denied).
+     *
+     * @returns {Promise<boolean>} true iff all three permissions were granted.
+     */
+    const requestAppPermissions = async () => {
+      let calendar = 'denied';
+      let location = RESULTS.DENIED;
+      let notifications = false;
+      try {
+        calendar = await RNCalendarEvents.requestPermissions();
+      } catch (e) {
+        console.warn('[Loading] Calendar permission request failed:', e);
+      }
+      try {
+        location =
+          Platform.OS === 'ios'
+            ? await request(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE)
+            : await request(PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION);
+      } catch (e) {
+        console.warn('[Loading] Location permission request failed:', e);
+      }
+      try {
+        notifications = await Notifications.configureNotifications();
+        if (notifications) {
+          await Notifications.createDefaultChannel();
+        }
+      } catch (e) {
+        console.warn('[Loading] Notifications permission request failed:', e);
+      }
+      const allGranted =
         calendar === 'authorized' &&
         location === RESULTS.GRANTED &&
-        notificationPermission
-      ) {
-        //Create default channel for notifications
-        await Notifications.createDefaultChannel();
-        await prepareSession();
-      } else {
-        Alert.alert('Permisos', 'No se otorgaron los permisos necesarios');
+        notifications;
+      if (!allGranted) {
+        console.warn(
+          '[Loading] Some permissions were not granted; some features will be degraded ' +
+            `(calendar=${calendar}, location=${location}, notifications=${notifications}).`,
+        );
       }
+      return allGranted;
     };
 
     initialize();

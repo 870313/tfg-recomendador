@@ -150,6 +150,7 @@ const styles = StyleSheet.create({
   gpsInput: {
     backgroundColor: '#fff',
     borderRadius: 8,
+    color: '#111827',
     elevation: 1,
     flex: 0.6,
     fontSize: 16,
@@ -163,6 +164,7 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: '#fff',
     borderRadius: 8,
+    color: '#111827',
     elevation: 1,
     fontSize: 16,
     marginBottom: 20,

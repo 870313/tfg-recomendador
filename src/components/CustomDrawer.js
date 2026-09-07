@@ -12,7 +12,6 @@ import {
   Home,
   User,
   Settings,
-  AlertTriangle,
   MapPin,
   Sparkles,
 } from 'lucide-react-native';
@@ -22,7 +21,6 @@ const iconMap = {
   Home,
   Profile: User,
   Settings,
-  'You must be logged in': AlertTriangle,
   POIs: MapPin,
   Recommendations: Sparkles,
 };
@@ -38,11 +36,13 @@ const options = [
   { key: 'Context rules' },
 ];
 
-const optionsNotLogin = [{ key: 'You must be logged in' }];
-
 export default function CustomDrawer(props) {
   const { navigation, state } = props;
 
+  // Kept as state so the drawer re-renders if login state ever changes at
+  // runtime; the current boot flow (Loading.js) always leaves a user in Realm
+  // by the time this drawer is first shown, so the fallback branch below
+  // should not be reached in normal use.
   const [isLogin, setIsLogin] = useState(false);
 
   const currentScreen = state?.routeNames?.[state.index] || '';
@@ -57,7 +57,12 @@ export default function CustomDrawer(props) {
     navigation.navigate('Main', { screen: routeName });
   };
 
-  const visibleOptions = isLogin ? options : optionsNotLogin;
+  // The drawer always exposes the full navigation set. Previously, an
+  // "isLogin" gate hid every option behind a residual "You must be logged in"
+  // placeholder inherited from the original R-Rules prototype, which no
+  // longer fits the unified app and confused users on iOS during startup
+  // races (drawer opened before the local user record was fully written).
+  const visibleOptions = options;
 
   return (
     <SafeAreaView edges={['top', 'left', 'right', 'bottom']}>
@@ -70,7 +75,7 @@ export default function CustomDrawer(props) {
         return (
           <Pressable
             key={item.key}
-            onPress={() => isLogin && oPressSection(item.key)}
+            onPress={() => oPressSection(item.key)}
             borderRadius="$lg"
             bg={selected ? '$primary100' : 'transparent'}
             px="$3"

@@ -96,9 +96,11 @@ export default function ServerBasedContextRule({ navigation }) {
       <Input style={styles.input} size="lg" variant="underlined">
         <InputField
           placeholder="Insert name"
+          placeholderTextColor="#9CA3AF"
           maxLength={30}
           value={name}
           onChangeText={setName}
+          color="#111827"
         />
       </Input>
 

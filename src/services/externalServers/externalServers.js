@@ -46,7 +46,16 @@ export async function loginSensorizarServer() {
 
       return result.token;
     } catch (error) {
-      console.error('[loginSensorizarServer] Error during login:', error);
+      // Use console.warn (not console.error) so React Native's LogBox does
+      // not raise an intrusive red toast every time the background task runs
+      // without network connectivity or with the Sensorizar server offline.
+      // The rest of the app degrades gracefully: Server-Based rules that
+      // depend on this token simply won't fire until connectivity returns.
+      console.warn(
+        '[loginSensorizarServer] Login unavailable (network offline or Sensorizar server unreachable):',
+        error?.message ?? error,
+      );
+      return null;
     }
 }
 

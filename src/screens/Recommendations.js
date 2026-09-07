@@ -113,6 +113,13 @@ const RecommendationsScreen = () => {
   const onGenerate = async () => {
     setLoading(true);
     setError(null);
+    // Clear any previous results immediately so the user sees the list wipe
+    // out and understands that a new run is in progress. Without this, a run
+    // that ends up returning 0 results would keep the previous list on screen
+    // and the change would be silent.
+    setResults([]);
+    setRanAlgorithm(null);
+    setExpandedManualId(null);
     try {
       const context = {
         maxItems: DEFAULT_MAX_ITEMS,

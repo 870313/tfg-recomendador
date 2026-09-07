@@ -54,10 +54,25 @@ export async function recommend({
     lon: lastPos?.lon,
   };
 
-  // 3. Load all POIs from Realm as plain objects
-  const pois = getAllZaragozaPOIs();
-  if (pois.length === 0) {
+  // 3. Load POIs from Realm and, when the bridge has provided a
+  //    recommendationType (or explicit matchKeywords derived from it),
+  //    pre-filter by that type so the algorithm only sees POIs consistent
+  //    with what the triggering rule requested. Without this filter, the
+  //    closeness algorithm returns the N nearest POIs regardless of type,
+  //    which mixes restaurants with monuments when the user's rule said
+  //    "Restaurants" (bug reported after the field trial on Android).
+  const allPois = getAllZaragozaPOIs();
+  if (allPois.length === 0) {
     console.warn('[RecommendationEngine] no POIs in Realm');
+    return [];
+  }
+  const pois = filterPoisByType(allPois, context);
+  if (pois.length === 0) {
+    console.warn(
+      `[RecommendationEngine] no POIs match recommendationType="${context.recommendationType}" ` +
+        `(matchKeywords=${JSON.stringify(context.matchKeywords ?? [])}); ` +
+        'algorithm will run over the empty set',
+    );
     return [];
   }
 
@@ -81,6 +96,48 @@ export async function recommend({
   // 7. Attach full POI data for the UI
   const poisById = new Map(pois.map(p => [p.id, p]));
   return scored.map(s => ({...s, poi: poisById.get(s.poiId) ?? null}));
+}
+
+/**
+ * Filter POIs whose declared type matches the recommendation type of the
+ * triggering rule. Matching strategy:
+ *
+ *   1. If context.matchKeywords is a non-empty array (typically injected by
+ *      the RecommendationBridge from its typeToKeywords map), keep any POI
+ *      whose `type` contains at least one of those keywords (case- and
+ *      accent-insensitive substring match).
+ *   2. Otherwise, if context.recommendationType is set, fall back to a
+ *      case-insensitive substring match against the type token itself,
+ *      handling the trivial English plural ("Restaurants" → "restaurant"
+ *      → matches "Restaurante", "restaurantes"...).
+ *   3. If neither is set (manual generation from the Recommendations
+ *      screen with no rule context), return every POI as before.
+ *
+ * The comparison is intentionally loose to bridge the mismatch between
+ * the English recommendation types the rules use ("Restaurants") and the
+ * Spanish type labels served by datos.zaragoza.es ("Restaurante").
+ */
+function filterPoisByType(pois, context = {}) {
+  const keywords = Array.isArray(context.matchKeywords)
+    ? context.matchKeywords.filter(Boolean)
+    : [];
+  const recType = context.recommendationType;
+  if (keywords.length === 0 && (!recType || recType === '')) {
+    return pois;
+  }
+  const norm = s =>
+    String(s ?? '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '');
+  const needles =
+    keywords.length > 0
+      ? keywords.map(norm)
+      : [norm(recType).replace(/s$/, '')];
+  return pois.filter(poi => {
+    const type = norm(poi.type);
+    return needles.some(n => n.length > 0 && type.includes(n));
+  });
 }
 
 /** Replace cached recommendations for a user+algorithm pair. */

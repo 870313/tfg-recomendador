@@ -130,9 +130,11 @@ const CalendarBasedContextRule = ({ navigation }) => {
         >
         <InputField
             placeholder="Insert name"
+            placeholderTextColor="#9CA3AF"
             value={name}
             maxLength={30}
             onChangeText={setName}
+            color="#111827"
         />
         </Input>
 
